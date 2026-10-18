@@ -14,7 +14,6 @@ import {
   distanceRangeLabel,
   kindFilterOptions,
   nearbyListedPosts,
-  nearestNeighborhood,
   PetFilter,
   purposeFilterOptions,
   quickMaxDistancesKm,
@@ -31,7 +30,7 @@ function goBack() {
 // 필터 설정 (기획서 5.1, 5.2). 고친 조건은 `적용`을 눌러야 지도·글 목록에 함께 반영된다.
 export default function PetFilterScreen() {
   const { posts, filter, setFilter } = usePetPosts();
-  const { searchCenter } = useMapState();
+  const { searchCenter, areaLabel } = useMapState();
   const [draft, setDraft] = useState<PetFilter>(filter);
   const update = (patch: Partial<PetFilter>) => setDraft((prev) => ({ ...prev, ...patch }));
   const resultCount = useMemo(() => nearbyListedPosts(posts, searchCenter, draft).length, [posts, searchCenter, draft]);
@@ -74,7 +73,7 @@ export default function PetFilterScreen() {
           <ChoiceChips options={sexFilterOptions} value={draft.sex} onChange={(sex) => update({ sex })} testIDPrefix="filter-sex" />
         </Field>
 
-        <Field label="거리" hint={`${nearestNeighborhood(searchCenter).name} 부근(검색 중심)에서 등록 동네까지 직선거리`}>
+        <Field label="거리" hint={`검색 중심(${areaLabel.title} · ${areaLabel.basis})에서 등록 동네까지 직선거리`}>
           <Text testID="filter-distance-value" style={styles.distanceValue}>
             {distanceRangeLabel(draft.distanceKm)}
           </Text>

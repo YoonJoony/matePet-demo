@@ -1,6 +1,8 @@
 // 반려동물 교배·입양 등록 글 데이터 (기획서 7.1~7.5).
 // 데모에서는 앱 메모리에만 두며 새로고침하면 샘플 상태로 돌아간다.
 import { distanceBetween, LatLng } from '@/data/places';
+import type { Region } from '@/data/regions';
+import regionSamples from '@/data/regionSamples.json';
 
 export type PetPurpose = 'mating' | 'adoption';
 export type PetKind = 'bird' | 'dog' | 'cat';
@@ -32,28 +34,13 @@ export function usesHealthChecks(kind: PetKind): boolean {
   return kind === 'dog' || kind === 'cat';
 }
 
-// 공개 위치로 쓰는 동네 중심점 (데모용 근사 좌표). 실제 주소 대신 이 지점으로만 지도 표시·거리 계산을 한다.
-export type Neighborhood = { name: string; latitude: number; longitude: number };
-// 성남시(수정·중원·분당구)와 이웃 지역(강남·송파·용인 수지). 성남시청이 있는 여수동이 데모 사용자의 기본 동네다.
-export const neighborhoods: Neighborhood[] = [
-  { name: '여수동', latitude: 37.42, longitude: 127.1267 },
-  { name: '신흥동', latitude: 37.4405, longitude: 127.1474 },
-  { name: '태평동', latitude: 37.4446, longitude: 127.1338 },
-  { name: '성남동', latitude: 37.4321, longitude: 127.129 },
-  { name: '상대원동', latitude: 37.4355, longitude: 127.1717 },
-  { name: '야탑동', latitude: 37.4114, longitude: 127.1279 },
-  { name: '서현동', latitude: 37.3847, longitude: 127.1235 },
-  { name: '수내동', latitude: 37.3786, longitude: 127.1146 },
-  { name: '정자동', latitude: 37.3667, longitude: 127.1086 },
-  { name: '삼평동', latitude: 37.4012, longitude: 127.1086 },
-  { name: '구미동', latitude: 37.3503, longitude: 127.106 },
-  { name: '수서동', latitude: 37.4874, longitude: 127.1018 },
-  { name: '문정동', latitude: 37.4859, longitude: 127.1222 },
-  { name: '죽전동', latitude: 37.3247, longitude: 127.1074 },
-];
-
-export function findNeighborhood(name: string): Neighborhood {
-  return neighborhoods.find((item) => item.name === name) ?? neighborhoods[0];
+// 샘플 글·기본 동네가 속한 실제 행정동 (scripts/build-regions.mjs가 경계 데이터로 판정해 만든 파일).
+// 알 수 없는 동네를 다른 동네로 바꿔 넣지 않도록, 없는 키를 찾으면 바로 오류를 낸다.
+type SampleRegionKey = keyof typeof regionSamples.regions;
+function sampleRegion(key: SampleRegionKey): Region {
+  const region = regionSamples.regions[key];
+  if (!region) throw new Error(`샘플 지역 ${key}가 없어요.`);
+  return region;
 }
 
 // 데모 사용자 (실제 개인정보 대신 샘플 값).
@@ -61,7 +48,8 @@ export function findNeighborhood(name: string): Neighborhood {
 export const me = {
   id: 'user-demo',
   nickname: '데모 보호자',
-  defaultNeighborhood: '여수동',
+  // 기본 동네: 성남시청이 있는 행정동(도촌동). 성남시청 주소의 '여수동'은 법정동이라 쓰지 않는다.
+  homeRegion: sampleRegion('home'),
   defaultAddressDetail: '성남대로 000 (샘플 주소)',
   phone: '010-0000-0000',
 };
@@ -87,7 +75,7 @@ export type PetPost = {
   adoption: { reason: string; personality: string; habits: string } | null;
   photos: PetPhoto[];
   placeholder: { emoji: string; color: string }; // 사진이 없을 때 대신 보여 줄 그림
-  area: Neighborhood; // 공개 위치 (동네 중심점)
+  area: Region; // 등록 동네 (공개 위치 = 동네 경계 안쪽의 대표 위치)
   addressDetail: string; // 비공개 상세 주소 — 화면에 표시하지 않는다
   contact: { chat: boolean; phone: string | null };
   memo: string;
@@ -112,7 +100,7 @@ const base: Pick<PetPost, 'description' | 'health' | 'mating' | 'adoption' | 'ph
   memo: '',
 };
 
-// 성남 주변 샘플 (기획서 10.2): 조류·강아지·고양이 × 교배·입양, 같은 동네 겹침(정자동 3건), 먼 글(죽전동),
+// 성남 주변 샘플 (기획서 10.2): 조류·강아지·고양이 × 교배·입양, 같은 동네 겹침(정자동 3건), 먼 글(죽전2동),
 // 상담 중·완료 글, 사진 없는 글, 데모 사용자 본인 글(p12)을 포함한다. p1·p2는 샘플 채팅방과 연결된다.
 export const samplePosts: PetPost[] = [
   {
@@ -123,7 +111,7 @@ export const samplePosts: PetPost[] = [
     health: { condition: '정기 검진 이상 없음', vaccination: 'done', neutered: 'no' },
     mating: { wantKind: 'dog', wantBreed: '말티즈', wantSex: 'female', memo: '같은 품종, 3살 이하를 원해요.' },
     photos: [samplePhoto('dog-profile')],
-    placeholder: { emoji: '🐶', color: '#4A3F55' }, area: findNeighborhood('정자동'),
+    placeholder: { emoji: '🐶', color: '#4A3F55' }, area: sampleRegion('jeongja'),
     contact: { chat: true, phone: '010-0000-0101' }, authorId: 'user-1', author: '콩이네', createdAt: minutesAgo(12),
   },
   {
@@ -134,7 +122,7 @@ export const samplePosts: PetPost[] = [
     health: { condition: '건강해요', vaccination: 'done', neutered: 'yes' },
     adoption: { reason: '해외 이사', personality: '조용하고 애교가 많아요', habits: '화장실 잘 가리고 밤에 잘 자요' },
     photos: [samplePhoto('cat-profile')],
-    placeholder: { emoji: '🐱', color: '#3B4A3F' }, area: findNeighborhood('서현동'), authorId: 'user-2', author: '나비집사', createdAt: minutesAgo(45),
+    placeholder: { emoji: '🐱', color: '#3B4A3F' }, area: sampleRegion('seohyeon'), authorId: 'user-2', author: '나비집사', createdAt: minutesAgo(45),
   },
   {
     ...base,
@@ -142,7 +130,7 @@ export const samplePosts: PetPost[] = [
     pet: { name: '해피', kind: 'bird', breed: '왕관앵무', sex: 'female', birthDate: '2024-05-01', estimatedAge: '' },
     mating: { wantKind: 'bird', wantBreed: '왕관앵무', wantSex: 'male', memo: '' },
     photos: [samplePhoto('bird-profile')],
-    placeholder: { emoji: '🦜', color: '#4A4A2E' }, area: findNeighborhood('야탑동'), authorId: 'user-3', author: '앵무사랑', createdAt: minutesAgo(130),
+    placeholder: { emoji: '🦜', color: '#4A4A2E' }, area: sampleRegion('yatap'), authorId: 'user-3', author: '앵무사랑', createdAt: minutesAgo(130),
   },
   {
     ...base,
@@ -152,7 +140,7 @@ export const samplePosts: PetPost[] = [
     health: { condition: '건강해요', vaccination: 'done', neutered: 'yes' },
     adoption: { reason: '다른 고양이와 합사가 어려워요', personality: '활발하고 호기심이 많아요', habits: '새벽에 우다다를 해요' },
     photos: [samplePhoto('cat-profile2')],
-    placeholder: { emoji: '🐈', color: '#3F4A4F' }, area: findNeighborhood('태평동'), authorId: 'user-4', author: '호랑이네', createdAt: minutesAgo(200),
+    placeholder: { emoji: '🐈', color: '#3F4A4F' }, area: sampleRegion('taepyeong'), authorId: 'user-4', author: '호랑이네', createdAt: minutesAgo(200),
   },
   {
     ...base,
@@ -161,7 +149,7 @@ export const samplePosts: PetPost[] = [
     health: { condition: '1차 접종 완료', vaccination: 'partial', neutered: 'no' },
     adoption: { reason: '구조한 아기 고양이예요', personality: '잠이 많고 순해요', habits: '모래 화장실 사용' },
     photos: [samplePhoto('cat-profile3')],
-    placeholder: { emoji: '🐱', color: '#4F453B' }, area: findNeighborhood('정자동'), authorId: 'user-5', author: '구조맘', createdAt: minutesAgo(90),
+    placeholder: { emoji: '🐱', color: '#4F453B' }, area: sampleRegion('jeongja'), authorId: 'user-5', author: '구조맘', createdAt: minutesAgo(90),
   },
   {
     ...base,
@@ -170,7 +158,7 @@ export const samplePosts: PetPost[] = [
     pet: { name: '보리', kind: 'dog', breed: '믹스', sex: 'male', birthDate: '', estimatedAge: '약 4살' },
     health: { condition: '슬개골 1기 (생활에는 지장 없음)', vaccination: 'partial', neutered: 'yes' },
     adoption: { reason: '가족 알레르기', personality: '활발하고 낯을 조금 가려요', habits: '하루 두 번 산책' },
-    placeholder: { emoji: '🐕', color: '#4F3B2E' }, area: findNeighborhood('수내동'),
+    placeholder: { emoji: '🐕', color: '#4F3B2E' }, area: sampleRegion('sunae'),
     contact: { chat: true, phone: '010-0000-0106' }, authorId: 'user-6', author: '보리아빠', createdAt: minutesAgo(300),
   },
   {
@@ -179,14 +167,14 @@ export const samplePosts: PetPost[] = [
     pet: { name: '루나', kind: 'cat', breed: '러시안 블루', sex: 'female', birthDate: '2022-11-20', estimatedAge: '' },
     health: { condition: '건강해요', vaccination: 'done', neutered: 'no' },
     mating: { wantKind: 'cat', wantBreed: '러시안 블루', wantSex: 'male', memo: '혈통서 있는 아이를 원해요.' },
-    placeholder: { emoji: '🐈', color: '#2E3F4F' }, area: findNeighborhood('삼평동'), authorId: 'user-7', author: '루나맘', createdAt: minutesAgo(600),
+    placeholder: { emoji: '🐈', color: '#2E3F4F' }, area: sampleRegion('sampyeong'), authorId: 'user-7', author: '루나맘', createdAt: minutesAgo(600),
   },
   {
     ...base,
     id: 'p8', purpose: 'adoption', status: 'recruiting', title: '사랑앵무 한 쌍 입양처 찾아요',
     pet: { name: '초록이', kind: 'bird', breed: '사랑앵무', sex: 'unknown', birthDate: '', estimatedAge: '약 1살' },
     adoption: { reason: '돌볼 시간이 부족해요', personality: '사람 손을 잘 타요', habits: '아침에 잘 울어요' },
-    placeholder: { emoji: '🐦', color: '#2E4F45' }, area: findNeighborhood('정자동'), authorId: 'user-8', author: '새집', createdAt: minutesAgo(1440),
+    placeholder: { emoji: '🐦', color: '#2E4F45' }, area: sampleRegion('jeongja'), authorId: 'user-8', author: '새집', createdAt: minutesAgo(1440),
   },
   {
     ...base,
@@ -194,14 +182,14 @@ export const samplePosts: PetPost[] = [
     pet: { name: '솜이', kind: 'dog', breed: '포메라니안', sex: 'male', birthDate: '', estimatedAge: '약 3살' },
     health: { condition: '건강해요', vaccination: 'done', neutered: 'no' },
     mating: { wantKind: 'dog', wantBreed: '포메라니안', wantSex: 'female', memo: '' },
-    placeholder: { emoji: '🐩', color: '#55463B' }, area: findNeighborhood('수서동'), authorId: 'user-9', author: '솜이네', createdAt: minutesAgo(2880),
+    placeholder: { emoji: '🐩', color: '#55463B' }, area: sampleRegion('suseo'), authorId: 'user-9', author: '솜이네', createdAt: minutesAgo(2880),
   },
   {
     ...base,
     id: 'p10', purpose: 'mating', status: 'recruiting', title: '모란앵무 수컷 짝 구해요',
     pet: { name: '망고', kind: 'bird', breed: '모란앵무', sex: 'male', birthDate: '', estimatedAge: '약 1살' },
     mating: { wantKind: 'bird', wantBreed: '모란앵무', wantSex: 'female', memo: '' },
-    placeholder: { emoji: '🐤', color: '#4F4A2E' }, area: findNeighborhood('문정동'), authorId: 'user-10', author: '망고집', createdAt: minutesAgo(3000),
+    placeholder: { emoji: '🐤', color: '#4F4A2E' }, area: sampleRegion('munjeong'), authorId: 'user-10', author: '망고집', createdAt: minutesAgo(3000),
   },
   {
     ...base,
@@ -209,7 +197,7 @@ export const samplePosts: PetPost[] = [
     pet: { name: '구름', kind: 'cat', breed: '페르시안', sex: 'male', birthDate: '', estimatedAge: '약 5살' },
     health: { condition: '건강해요', vaccination: 'done', neutered: 'yes' },
     adoption: { reason: '', personality: '', habits: '' },
-    placeholder: { emoji: '😺', color: '#44404F' }, area: findNeighborhood('죽전동'), authorId: 'user-11', author: '구름집사', createdAt: minutesAgo(4320),
+    placeholder: { emoji: '😺', color: '#44404F' }, area: sampleRegion('jukjeon'), authorId: 'user-11', author: '구름집사', createdAt: minutesAgo(4320),
   },
   // 데모 사용자 본인의 글 — 상세에서 수정·상태 변경 흐름을 확인한다 (기획서 7.5, 11).
   {
@@ -220,7 +208,7 @@ export const samplePosts: PetPost[] = [
     health: { condition: '건강해요', vaccination: 'done', neutered: 'no' },
     mating: { wantKind: 'dog', wantBreed: '말티즈', wantSex: 'male', memo: '' },
     photos: [samplePhoto('dog-profile2')],
-    placeholder: { emoji: '🐶', color: '#4A4F55' }, area: findNeighborhood(me.defaultNeighborhood), addressDetail: me.defaultAddressDetail,
+    placeholder: { emoji: '🐶', color: '#4A4F55' }, area: me.homeRegion, addressDetail: me.defaultAddressDetail,
     contact: { chat: true, phone: null }, authorId: me.id, author: me.nickname, createdAt: minutesAgo(25),
   },
 ];
@@ -328,9 +316,4 @@ export function nearbyListedPosts(posts: PetPost[], center: LatLng, filter: PetF
     .map((post) => ({ post, distance: distanceToPost(center, post) }))
     .filter(({ post, distance }) => matchesFilter(post, distance, filter))
     .sort((a, b) => a.distance - b.distance);
-}
-
-// 상단에 보여 줄 검색 지역 이름: 검색 중심에서 가장 가까운 동네 (데모 동네 표 기준).
-export function nearestNeighborhood(point: LatLng): Neighborhood {
-  return neighborhoods.reduce((best, item) => (distanceBetween(point, item) < distanceBetween(point, best) ? item : best));
 }

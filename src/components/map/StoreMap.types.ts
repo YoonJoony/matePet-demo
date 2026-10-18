@@ -31,11 +31,15 @@ export type StoreMapProps = {
   onPressMap?: () => void;
   // 지도를 다 움직인 뒤의 중심. "이 지역에서 다시 검색" 버튼에 쓴다.
   onMoveEnd?: (center: LatLng) => void;
-  myLocation: LatLng;
+  // 탐색 중심 (현재 위치·선택한 동네 대표 위치·지도 중심). 바뀌거나 recenterKey가 바뀌면 이 위치로 이동한다.
+  center: LatLng;
+  // 실제 GPS 위치. 알 때만 '내 장소' 점을 그린다 (위치를 모를 때 기본 좌표에 그리지 않음).
+  myLocation: LatLng | null;
   // 하단 시트에 가려지는 높이. 지도는 이 높이만큼 아래를 비우고 그린다.
   bottomInset: number;
-  // 값이 바뀔 때마다 내 위치로 이동한다.
   recenterKey: number;
+  // 경계를 강조할 행정동 코드 (선택한 동네). 실제 경계 데이터만 그린다.
+  highlightRegionCode: string | null;
   // 지도 배율. 값이 바뀌면 그 배율로 맞춘다 (동물 찾기는 넓게, 주변 시설은 가깝게).
   zoom: number;
 };

@@ -14,7 +14,7 @@ import { PetNearbyList, PetRows, PetSummary, SheetMode, SheetModeSwitch, SheetTi
 import { PetFilterBar } from '@/components/pets/PetFilterBar';
 import { WriteMenu } from '@/components/pets/WriteMenu';
 import { colors } from '@/components/theme';
-import { nearbyListedPosts, nearestNeighborhood, purposeColors, purposeLabels } from '@/data/pets';
+import { nearbyListedPosts, purposeColors, purposeLabels } from '@/data/pets';
 import { distanceBetween, fetchPlaceDetail, LatLng, Place, PlaceCategory, placeEmoji, searchPlaces } from '@/data/places';
 import { useMapState } from '@/state/mapState';
 import { usePetPosts } from '@/state/petPosts';
@@ -28,7 +28,7 @@ type SearchResult = { key: string; places: Place[]; error: string | null };
 // 홈 = 지도 (기획서 4). 교배·입양 글의 원형 프로필과 주변 시설을 함께 탐색한다.
 export default function HomeMapScreen() {
   const insets = useSafeAreaInsets();
-  const { myLocation, searchCenter, searchHere, selectedPlace, selectPlace, likedPlaceIds } = useMapState();
+  const { myLocation, basis, searchCenter, areaLabel, searchHere, selectedPlace, selectPlace, likedPlaceIds } = useMapState();
   const { posts, filter } = usePetPosts();
   const [mode, setMode] = useState<SheetMode>('pets');
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
@@ -170,8 +170,6 @@ export default function HomeMapScreen() {
 
   const onLayout = (event: LayoutChangeEvent) => setHeight(event.nativeEvent.layout.height);
   const sheetHeight = (height || 800) - positions[snap === 'full' ? 'mid' : snap];
-  const area = nearestNeighborhood(searchCenter).name;
-  const areaBasis = searchCenter !== myLocation.location ? '이 지역에서 검색 중' : myLocation.status === 'granted' ? '현재 위치 기준' : '기본 지역 기준';
 
   let sheetHeader: ReactNode;
   let sheetBody: ReactNode;
@@ -221,24 +219,39 @@ export default function HomeMapScreen() {
         onSelectPoi={onSelectPoi}
         onPressMap={onPressMap}
         onMoveEnd={onMoveEnd}
-        myLocation={myLocation.location}
+        center={searchCenter}
+        myLocation={myLocation.status === 'granted' ? myLocation.location : null}
         bottomInset={sheetHeight}
         recenterKey={recenterKey}
+        highlightRegionCode={basis.kind === 'region' ? basis.region.code : null}
         zoom={ZOOM_BY_MODE[mode]}
       />
 
       <View style={[styles.top, { top: insets.top + 8 }]} pointerEvents="box-none">
         {/* 상단: 현재 검색 지역, 검색, 프로필 진입 (기획서 4.1). 프로필 화면은 탭이 아니라 이 버튼으로 들어간다. */}
         <View style={styles.topBar}>
-          <View testID="search-area" style={styles.area}>
+          {/* 지역 버튼: 누르면 동네 선택 화면. 보조 문구로 탐색 기준(현재 위치·선택한 동네·지도 중심)을 구분한다. */}
+          <Pressable
+            testID="search-area"
+            accessibilityRole="button"
+            accessibilityLabel={`탐색 지역 ${areaLabel.title}, ${areaLabel.basis}. 눌러서 동네 바꾸기`}
+            onPress={() => router.push({ pathname: '/region-select', params: { purpose: 'home' } })}
+            style={styles.area}
+          >
             <Ionicons name="location-sharp" size={18} color={colors.text} />
             <View style={styles.areaText}>
-              <Text style={styles.areaName} numberOfLines={1}>
-                {area} 부근
+              <View style={styles.areaTitleRow}>
+                <Text style={styles.areaName} numberOfLines={1}>
+                  {areaLabel.title}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={colors.text} />
+              </View>
+              <Text style={styles.areaBasis} numberOfLines={1}>
+                {areaLabel.basis}
+                {areaLabel.note ? ` · ${areaLabel.note}` : ''}
               </Text>
-              <Text style={styles.areaBasis}>{areaBasis}</Text>
             </View>
-          </View>
+          </Pressable>
           <Pressable testID="map-search-button" accessibilityRole="search" accessibilityLabel="주변 시설 검색" hitSlop={6} onPress={() => router.push('/map-search')} style={styles.iconButton}>
             <Ionicons name="search" size={22} color={colors.text} />
           </Pressable>
@@ -358,7 +371,8 @@ const styles = StyleSheet.create({
   },
   area: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   areaText: { flex: 1 },
-  areaName: { fontSize: 17, fontWeight: '700', color: colors.text },
+  areaTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  areaName: { flexShrink: 1, fontSize: 17, fontWeight: '700', color: colors.text },
   areaBasis: { fontSize: 12, color: colors.subText },
   iconButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   purposeRow: { marginTop: 8 },

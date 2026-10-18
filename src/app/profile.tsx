@@ -41,7 +41,9 @@ export default function ProfileScreen() {
           </View>
           <View>
             <Text style={styles.name}>{me.nickname}</Text>
-            <Text style={styles.meta}>기본 지역 {me.defaultNeighborhood}</Text>
+            <Text style={styles.meta}>
+              기본 동네 {me.homeRegion.name} · {me.homeRegion.sido} {me.homeRegion.sigungu}
+            </Text>
           </View>
         </View>
 

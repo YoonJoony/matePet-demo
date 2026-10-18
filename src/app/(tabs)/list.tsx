@@ -9,24 +9,37 @@ import { FilterEmptyState, PetFilterBar } from '@/components/pets/PetFilterBar';
 import { PetImage, PurposeBadge } from '@/components/pets/ui';
 import { WriteMenu } from '@/components/pets/WriteMenu';
 import { colors } from '@/components/theme';
-import { formatApproxDistance, kindLabels, nearbyListedPosts, nearestNeighborhood, petAgeLabel, PetPost, sexSymbols, statusLabels, timeAgoLabel } from '@/data/pets';
+import { formatApproxDistance, kindLabels, nearbyListedPosts, petAgeLabel, PetPost, sexSymbols, statusLabels, timeAgoLabel } from '@/data/pets';
 import { useMapState } from '@/state/mapState';
 import { usePetPosts } from '@/state/petPosts';
 
 // 글 목록: 주변 교배·입양 등록 글 (기획서 6). 기본은 가까운 순, 모집 중·상담 중 글만 보여 준다.
 export default function PetPostListScreen() {
   const { posts, filter } = usePetPosts();
-  const { searchCenter } = useMapState();
+  const { searchCenter, areaLabel } = useMapState();
 
   const items = useMemo(() => nearbyListedPosts(posts, searchCenter, filter), [posts, filter, searchCenter]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <View style={styles.town}>
+        {/* 홈 지도와 같은 탐색 지역. 눌러서 바꾸면 지도·목록에 함께 반영된다. */}
+        <Pressable
+          testID="list-area"
+          accessibilityRole="button"
+          accessibilityLabel={`탐색 지역 ${areaLabel.title}, ${areaLabel.basis}. 눌러서 동네 바꾸기`}
+          onPress={() => router.push({ pathname: '/region-select', params: { purpose: 'home' } })}
+          style={styles.town}
+        >
           <Ionicons name="location-sharp" size={20} color={colors.text} />
-          <Text style={styles.headerTitle}>{nearestNeighborhood(searchCenter).name}</Text>
-        </View>
+          <View>
+            <View style={styles.townTitle}>
+              <Text style={styles.headerTitle}>{areaLabel.title}</Text>
+              <Ionicons name="chevron-down" size={16} color={colors.text} />
+            </View>
+            <Text style={styles.townBasis}>{areaLabel.basis}</Text>
+          </View>
+        </Pressable>
         <View style={styles.headerIcons}>
           <Ionicons name="search-outline" size={24} color={colors.text} />
           <Pressable testID="list-filter-button" accessibilityRole="button" accessibilityLabel="필터" hitSlop={8} onPress={() => router.push('/pet-filter')}>
@@ -96,6 +109,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   town: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  townTitle: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  townBasis: { fontSize: 11, color: colors.subText },
   headerTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
   headerIcons: { flexDirection: 'row', alignItems: 'center', gap: 18 },
   row: { flexDirection: 'row', padding: 16, gap: 16 },

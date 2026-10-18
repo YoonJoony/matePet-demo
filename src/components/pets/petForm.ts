@@ -1,6 +1,6 @@
 // 교배·입양 등록 폼의 입력 상태, 검사, 등록 글 변환 (기획서 7.1·7.2·7.4.1).
+import type { Region } from '@/data/regions';
 import {
-  findNeighborhood,
   me,
   Neutered,
   PetKind,
@@ -37,7 +37,7 @@ export type PetDraft = {
   reason: string;
   personality: string;
   habits: string;
-  neighborhood: string;
+  region: Region | null; // 등록 동네 (실제 행정동 — 코드·상위 지역·대표 위치 포함)
   addressDetail: string;
   chat: boolean;
   showPhone: boolean;
@@ -68,7 +68,7 @@ export function emptyDraft(): PetDraft {
     reason: '',
     personality: '',
     habits: '',
-    neighborhood: me.defaultNeighborhood,
+    region: me.homeRegion,
     addressDetail: me.defaultAddressDetail,
     chat: true,
     showPhone: false,
@@ -102,7 +102,7 @@ export function postToDraft(post: PetPost): PetDraft {
     reason: adoption?.reason ?? '',
     personality: adoption?.personality ?? '',
     habits: adoption?.habits ?? '',
-    neighborhood: post.area.name,
+    region: post.area,
     addressDetail: post.addressDetail,
     chat: contact.chat,
     showPhone: contact.phone !== null,
@@ -125,7 +125,7 @@ export function validateDraft(draft: PetDraft): DraftErrors {
   if (!draft.title.trim()) errors.title = '제목을 적어 주세요.';
   if (!draft.kind) errors.kind = '동물 종류를 골라 주세요.';
   if (!draft.sex) errors.sex = '성별을 골라 주세요. 모르면 미확인을 고르면 돼요.';
-  if (!draft.neighborhood) errors.neighborhood = '등록 동네를 골라 주세요.';
+  if (!draft.region) errors.neighborhood = '등록 동네를 선택해 주세요.';
   if (draft.kind && usesHealthChecks(draft.kind)) {
     if (!draft.vaccination) errors.vaccination = '예방접종 여부를 골라 주세요.';
     if (!draft.neutered) errors.neutered = '중성화 여부를 골라 주세요.';
@@ -145,6 +145,12 @@ const placeholderByKind: Record<PetKind, { emoji: string; color: string }> = {
   cat: { emoji: '🐱', color: '#3B4A3F' },
   bird: { emoji: '🦜', color: '#4A4A2E' },
 };
+
+// 검사(validateDraft)를 통과한 뒤에만 부르므로 동네가 없으면 다른 동네로 대신하지 않고 오류를 낸다.
+function requireRegion(region: Region | null): Region {
+  if (!region) throw new Error('등록 동네가 없어요.');
+  return region;
+}
 
 export function draftToPost(purpose: PetPurpose, draft: PetDraft): PetPost {
   const kind = draft.kind ?? 'dog';
@@ -173,7 +179,8 @@ export function draftToPost(purpose: PetPurpose, draft: PetDraft): PetPost {
       purpose === 'adoption' ? { reason: draft.reason.trim(), personality: draft.personality.trim(), habits: draft.habits.trim() } : null,
     photos: draft.photos,
     placeholder: placeholderByKind[kind],
-    area: findNeighborhood(draft.neighborhood), // 공개 위치 = 동네 중심점
+    // 공개 위치 = 고른 동네 경계 안쪽의 대표 위치. 지도에서 고른 정확한 좌표나 GPS 좌표는 글에 저장하지 않는다.
+    area: requireRegion(draft.region),
     addressDetail: draft.addressDetail.trim(), // 비공개
     contact: { chat: draft.chat, phone: draft.showPhone && draft.phone.trim() ? draft.phone.trim() : null },
     memo: draft.memo.trim(),

@@ -1,11 +1,13 @@
 /// <reference types="google.maps" />
-import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
 import { useEffect, useRef, useState } from 'react';
 
 import { SHEET_RADIUS } from '@/components/map/BottomSheet';
+import { loadGoogleMaps } from '@/components/map/googleMapsLoader';
 import { colors } from '@/components/theme';
 import { sexSymbols } from '@/data/pets';
 import type { LatLng } from '@/data/places';
+
+import { createBoundaryOverlay } from '@/components/region/boundaryOverlay';
 
 import type { PetMapMarker, StoreMapProps } from './StoreMap.types';
 
@@ -260,22 +262,6 @@ function centerVisible(map: google.maps.Map, target: google.maps.LatLngLiteral) 
   map.panBy(0, SHEET_RADIUS / 2);
 }
 
-// setOptions는 한 번만 불러야 하므로(두 번째부터는 무시되고 키가 담긴 경고가 출력됨) 로딩을 한 번만 한다.
-let googleMapsLoading: Promise<void> | null = null;
-
-function loadGoogleMaps(): Promise<void> {
-  googleMapsLoading ??= (async () => {
-    const response = await fetch('/api/maps-config');
-    const body = (await response.json()) as { googleMapsApiKey?: string; error?: string };
-    if (!body.googleMapsApiKey) throw new Error(body.error ?? '구글 지도 키를 불러오지 못했어요.');
-    setOptions({ key: body.googleMapsApiKey, v: 'weekly', language: 'ko', region: 'KR' });
-    await Promise.all([importLibrary('maps'), importLibrary('core')]);
-  })().catch((error: Error) => {
-    googleMapsLoading = null; // 실패하면 다음에 다시 시도할 수 있게 비운다.
-    throw error;
-  });
-  return googleMapsLoading;
-}
 
 export function StoreMap({
   markers,
@@ -288,10 +274,12 @@ export function StoreMap({
   onSelectPoi,
   onPressMap,
   onMoveEnd,
+  center: viewCenter,
   myLocation,
   bottomInset,
   recenterKey,
   zoom,
+  highlightRegionCode,
 }: StoreMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -299,8 +287,9 @@ export function StoreMap({
   const markersRef = useRef(new Map<string, HtmlMarker>());
   const myMarkerRef = useRef<HtmlMarker | null>(null);
   const petLayerRef = useRef<PetLayer | null>(null);
+  const boundaryRef = useRef<ReturnType<typeof createBoundaryOverlay> | null>(null);
   const handlersRef = useRef({ onSelect, onSelectPet, onSelectCluster, onSelectPoi, onPressMap, onMoveEnd });
-  const initialCenterRef = useRef(myLocation);
+  const initialCenterRef = useRef(viewCenter);
   const initialZoomRef = useRef(zoom);
   useEffect(() => {
     handlersRef.current = { onSelect, onSelectPet, onSelectCluster, onSelectPoi, onPressMap, onMoveEnd };
@@ -343,7 +332,9 @@ export function StoreMap({
           const c = created.getCenter();
           if (c) handlersRef.current.onMoveEnd?.({ latitude: c.lat(), longitude: c.lng() });
         });
-        myMarkerRef.current = createHtmlMarker(created, createMyLocationElement(), center);
+        const myElement = createMyLocationElement();
+        myElement.style.display = 'none'; // GPS 위치를 알 때만 보인다
+        myMarkerRef.current = createHtmlMarker(created, myElement, center);
         const petLayer = createPetLayer(
           (id) => handlersRef.current.onSelectPet(id),
           (members) => {
@@ -358,6 +349,7 @@ export function StoreMap({
           },
         );
         petLayer.setMap(created);
+        boundaryRef.current = createBoundaryOverlay(created, { fillOpacity: 0.06, strokeWeight: 2 });
         petLayerRef.current = petLayer;
         setMap(created);
       })
@@ -372,8 +364,14 @@ export function StoreMap({
       markerMap.clear();
       myMarkerRef.current?.setMap(null);
       petLayerRef.current?.setMap(null);
+      boundaryRef.current?.remove();
     };
   }, []);
+
+  // 선택한 동네의 경계 강조. 검색은 경계로 제한하지 않는다(거리 필터 그대로).
+  useEffect(() => {
+    if (map) boundaryRef.current?.show(highlightRegionCode);
+  }, [map, highlightRegionCode]);
 
   // 반려동물 프로필 목록·선택 상태를 오버레이에 반영
   useEffect(() => {
@@ -416,13 +414,25 @@ export function StoreMap({
     return () => clearTimeout(timer);
   }, [map, targetLat, targetLng, bottomInset]);
 
-  // 내 위치가 바뀌거나 "내 위치" 버튼을 누르면 내 위치로 이동
-  const { latitude: myLat, longitude: myLng } = myLocation;
+  // '내 장소' 점: 실제 GPS 위치를 알 때만 표시
+  const myLat = myLocation?.latitude;
+  const myLng = myLocation?.longitude;
   useEffect(() => {
-    if (!map) return;
-    myMarkerRef.current?.setPosition({ latitude: myLat, longitude: myLng });
-    centerVisible(map, { lat: myLat, lng: myLng });
-  }, [map, myLat, myLng, recenterKey]);
+    const marker = myMarkerRef.current;
+    if (!map || !marker) return;
+    if (myLat === undefined || myLng === undefined) {
+      marker.element.style.display = 'none';
+      return;
+    }
+    marker.setPosition({ latitude: myLat, longitude: myLng });
+    marker.element.style.display = '';
+  }, [map, myLat, myLng]);
+
+  // 탐색 중심이 바뀌거나 "내 위치" 버튼을 누르면 탐색 중심으로 이동
+  const { latitude: centerLat, longitude: centerLng } = viewCenter;
+  useEffect(() => {
+    if (map) centerVisible(map, { lat: centerLat, lng: centerLng });
+  }, [map, centerLat, centerLng, recenterKey]);
 
   // 지도는 하단 시트 윗부분보다 모서리 반지름만큼만 더 아래까지 그린다. 그래서 시트가 지도 위에 얹힌 것처럼 보이고
   // (둥근 모서리 바깥이 비지 않음), 거의 전부가 보이는 영역이라 가운데가 곧 보이는 중심이 된다.

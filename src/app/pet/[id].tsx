@@ -58,8 +58,9 @@ export default function PetDetailScreen() {
   const mine = post.authorId === me.id;
   // 나와의 거리는 실제 현재 위치를 알 때만, 모르면 기본 지역 기준으로 구분해 표시한다 (기획서 5.3).
   const located = myLocation.status === 'granted';
-  const distance = formatApproxDistance(distanceToPost(myLocation.location, post));
-  const distanceLabel = located ? `나와의 거리 ${distance}` : `기본 지역(${me.defaultNeighborhood}) 기준 ${distance}`;
+  // 위치를 모르면 기본 동네의 대표 위치에서 잰다.
+  const distance = formatApproxDistance(distanceToPost(located ? myLocation.location : me.homeRegion, post));
+  const distanceLabel = located ? `나와의 거리 ${distance}` : `기본 동네(${me.homeRegion.name}) 기준 ${distance}`;
   const photoWidth = Math.min(width, 480);
   const { pet, health } = post;
 
@@ -134,7 +135,7 @@ export default function PetDetailScreen() {
           {/* 5. 지역·거리 (공개 위치 기준) */}
           <Section title="등록 지역">
             <Text testID="pet-area" style={styles.paragraph}>
-              {post.area.name} 부근 · {distanceLabel}
+              {post.area.name} 부근 ({post.area.sigungu}) · {distanceLabel}
             </Text>
             <Text style={styles.small}>실시간 위치가 아니라 등록한 동네 기준이에요. 만날 장소는 채팅으로 정해 주세요.</Text>
           </Section>

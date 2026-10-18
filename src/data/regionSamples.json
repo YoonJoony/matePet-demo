@@ -1,0 +1,85 @@
+{
+  "version": "20261001",
+  "regions": {
+    "home": {
+      "code": "4113367000",
+      "name": "도촌동",
+      "sido": "경기도",
+      "sigungu": "성남시 중원구",
+      "latitude": 37.417107,
+      "longitude": 127.165574
+    },
+    "jeongja": {
+      "code": "4113554500",
+      "name": "정자동",
+      "sido": "경기도",
+      "sigungu": "성남시 분당구",
+      "latitude": 37.371206,
+      "longitude": 127.111635
+    },
+    "seohyeon": {
+      "code": "4113558000",
+      "name": "서현1동",
+      "sido": "경기도",
+      "sigungu": "성남시 분당구",
+      "latitude": 37.386373,
+      "longitude": 127.153624
+    },
+    "sunae": {
+      "code": "4113552000",
+      "name": "수내1동",
+      "sido": "경기도",
+      "sigungu": "성남시 분당구",
+      "latitude": 37.378757,
+      "longitude": 127.114559
+    },
+    "yatap": {
+      "code": "4113562000",
+      "name": "야탑1동",
+      "sido": "경기도",
+      "sigungu": "성남시 분당구",
+      "latitude": 37.413072,
+      "longitude": 127.12294
+    },
+    "sampyeong": {
+      "code": "4113565500",
+      "name": "삼평동",
+      "sido": "경기도",
+      "sigungu": "성남시 분당구",
+      "latitude": 37.401136,
+      "longitude": 127.111276
+    },
+    "taepyeong": {
+      "code": "4113156000",
+      "name": "태평3동",
+      "sido": "경기도",
+      "sigungu": "성남시 수정구",
+      "latitude": 37.443991,
+      "longitude": 127.132799
+    },
+    "suseo": {
+      "code": "1168075000",
+      "name": "수서동",
+      "sido": "서울특별시",
+      "sigungu": "강남구",
+      "latitude": 37.488416,
+      "longitude": 127.099384
+    },
+    "munjeong": {
+      "code": "1171064200",
+      "name": "문정2동",
+      "sido": "서울특별시",
+      "sigungu": "송파구",
+      "latitude": 37.482918,
+      "longitude": 127.117889
+    },
+    "jukjeon": {
+      "code": "4146555000",
+      "name": "죽전2동",
+      "sido": "경기도",
+      "sigungu": "용인시 수지구",
+      "latitude": 37.331358,
+      "longitude": 127.107668
+    }
+  }
+}

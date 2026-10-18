@@ -8,6 +8,7 @@ import { colors } from '@/components/theme';
 import { ChatsProvider } from '@/state/chats';
 import { MapStateProvider } from '@/state/mapState';
 import { PetPostsProvider } from '@/state/petPosts';
+import { RegionPickerProvider } from '@/state/regionPicker';
 
 export default function RootLayout() {
   return (
@@ -19,12 +20,14 @@ export default function RootLayout() {
       <MapStateProvider>
         <PetPostsProvider>
           <ChatsProvider>
-            <View style={styles.page}>
-              <View style={styles.app}>
-                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+            <RegionPickerProvider>
+              <View style={styles.page}>
+                <View style={styles.app}>
+                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+                </View>
               </View>
-            </View>
-            <StatusBar style="light" />
+              <StatusBar style="light" />
+            </RegionPickerProvider>
           </ChatsProvider>
         </PetPostsProvider>
       </MapStateProvider>

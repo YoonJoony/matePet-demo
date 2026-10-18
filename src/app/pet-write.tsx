@@ -25,7 +25,6 @@ import {
   breedsByKind,
   kindLabels,
   me,
-  neighborhoods,
   neuteredLabels,
   PetKind,
   PetPurpose,
@@ -35,7 +34,9 @@ import {
   usesHealthChecks,
   vaccinationLabels,
 } from '@/data/pets';
+import { regionParents } from '@/data/regions';
 import { usePetPosts } from '@/state/petPosts';
+import { useRegionPicker } from '@/state/regionPicker';
 
 const kindOptions = (Object.keys(kindLabels) as PetKind[]).map((value) => ({ value, label: kindLabels[value] }));
 const sexOptions = (Object.keys(sexLabels) as (keyof typeof sexLabels)[]).map((value) => ({ value, label: sexLabels[value] }));
@@ -64,6 +65,8 @@ export default function PetWriteScreen() {
   const [draft, setDraft] = useState<PetDraft>(initialDraft);
   const [errors, setErrors] = useState<DraftErrors>({});
   const [toast, setToast] = useState<string | null>(savedDraft ? '임시저장한 글을 불러왔어요.' : null);
+  const [addressNotice, setAddressNotice] = useState<string | null>(null);
+  const { pickPostRegion } = useRegionPicker();
   const [confirmExit, setConfirmExit] = useState(false);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const [fieldY, setFieldY] = useState<Partial<Record<DraftField, number>>>({});
@@ -76,6 +79,7 @@ export default function PetWriteScreen() {
       for (const key of Object.keys(patch)) delete next[key as DraftField];
       if ('chat' in patch || 'showPhone' in patch || 'phone' in patch) delete next.contact;
       if ('ageMode' in patch) delete next.birthDate;
+      if ('region' in patch) delete next.neighborhood;
       return next;
     });
   };
@@ -101,6 +105,17 @@ export default function PetWriteScreen() {
     if (remaining <= 0) return showToast(`사진은 최대 ${MAX_PHOTOS}장까지 올릴 수 있어요.`);
     const picked = await pickImages(remaining);
     if (picked.length) update({ photos: [...draft.photos, ...picked].slice(0, MAX_PHOTOS) });
+  };
+
+  // 등록 동네 변경: 공통 동네 선택 화면을 열고, 고른 동네만 이 작성 화면에 반영한다(다른 입력값·홈 탐색 위치·기본 동네는 그대로).
+  const changeRegion = async () => {
+    const picked = await pickPostRegion(draft.region);
+    if (!picked || picked.code === draft.region?.code) return;
+    update({ region: picked });
+    // 상세 주소는 덮어쓰지 않고, 새 동네와 맞는지 확인하도록 안내만 한다.
+    setAddressNotice(
+      draft.addressDetail.trim() ? `등록 동네를 ${picked.name}(으)로 바꿨어요. 아래 상세 주소가 새 동네와 맞는지 확인해 주세요.` : null,
+    );
   };
 
   const save = () => {
@@ -164,7 +179,7 @@ export default function PetWriteScreen() {
           <Ionicons name="close" size={30} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {editing ? `${purposeLabels[purpose]} 글 수정` : `${draft.neighborhood}에 ${purposeLabels[purpose]} 등록`}
+          {editing ? `${purposeLabels[purpose]} 글 수정` : `${draft.region?.name ?? '동네'}에 ${purposeLabels[purpose]} 등록`}
         </Text>
         {editing ? (
           <View style={styles.headerSpace} />
@@ -321,16 +336,25 @@ export default function PetWriteScreen() {
         {/* 위치 (기획서 7.4) */}
         <SectionTitle>등록 위치</SectionTitle>
         <Anchor onY={remember('neighborhood')}>
-          <Field label="동네" required error={errors.neighborhood} hint={`기본 주소의 동네(${draft.neighborhood})가 미리 선택돼 있어요. 다른 동네로 바꿀 수 있어요.`}>
-            <ChoiceChips
-              testIDPrefix="write-area"
-              options={neighborhoods.map((area) => ({ value: area.name, label: area.name }))}
-              value={draft.neighborhood}
-              onChange={(neighborhood) => update({ neighborhood })}
-            />
+          <Field label="등록 동네" required error={errors.neighborhood}>
+            <View testID="write-region" style={styles.regionCard}>
+              <View style={styles.regionInfo}>
+                <Text style={styles.regionName}>{draft.region?.name ?? '동네를 선택해 주세요'}</Text>
+                {draft.region ? <Text style={styles.regionParents}>{regionParents(draft.region)}</Text> : null}
+              </View>
+              <Pressable testID="write-region-change" accessibilityRole="button" onPress={changeRegion} style={styles.regionChange}>
+                <Text style={styles.regionChangeText}>변경</Text>
+              </Pressable>
+            </View>
+            {draft.region ? <Text style={styles.hintText}>지도와 글에는 ‘{draft.region.name} 부근’으로 표시돼요.</Text> : null}
+            {addressNotice ? (
+              <Text testID="write-address-notice" style={styles.noticeText}>
+                {addressNotice}
+              </Text>
+            ) : null}
           </Field>
         </Anchor>
-        <Field label="상세 주소 (비공개)" hint={`지도와 글에는 '${draft.neighborhood} 부근'으로만 표시되고 상세 주소는 공개되지 않아요.`}>
+        <Field label="상세 주소 (비공개)" hint={`지도와 글에는 '${draft.region?.name ?? '등록 동네'} 부근'으로만 표시되고 상세 주소는 공개되지 않아요.`}>
           <Input testID="write-address" value={draft.addressDetail} onChangeText={(addressDetail) => update({ addressDetail })} placeholder="예: 테헤란로 000" maxLength={100} />
         </Field>
 
@@ -442,6 +466,13 @@ const styles = StyleSheet.create({
   photoRemove: { position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.7)' },
   hintText: { marginTop: 8, fontSize: 13, color: colors.subText },
   errorText: { marginTop: 8, fontSize: 13, color: '#FF5C5C' },
+  noticeText: { marginTop: 8, fontSize: 13, lineHeight: 19, color: colors.caution },
+  regionCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 10, borderWidth: 1, borderColor: colors.surfaceStrong },
+  regionInfo: { flex: 1, gap: 2 },
+  regionName: { fontSize: 17, fontWeight: '700', color: colors.text },
+  regionParents: { fontSize: 13, color: colors.subText },
+  regionChange: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: colors.surfaceStrong },
+  regionChangeText: { fontSize: 15, fontWeight: '600', color: colors.text },
   contact: { marginTop: 16, gap: 10 },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, backgroundColor: colors.background },
   submit: { height: 56, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
