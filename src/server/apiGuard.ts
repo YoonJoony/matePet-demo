@@ -26,8 +26,10 @@ const { clientWindows, dailyCounts } = (globalStore.__apiGuardStore ??= { client
 // 하루 기준은 한국 시간 자정
 const koreanDay = (now: number) => new Date(now + 9 * 3_600_000).toISOString().slice(0, 10);
 
+// 접속자 IP: Cloudflare(cf-connecting-ip), Expo 공식 호스팅(x-real-ip), 일반 프록시(x-forwarded-for) 순서로 본다.
 function clientId(request: Request): string {
-  return request.headers.get('cf-connecting-ip') ?? request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  const { headers } = request;
+  return headers.get('cf-connecting-ip') ?? headers.get('x-real-ip') ?? headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
 }
 
 // 브라우저가 보내는 Sec-Fetch-Site·Origin으로 다른 사이트에서 부른 요청을 가려낸다.
@@ -37,9 +39,11 @@ function isCrossSite(request: Request): boolean {
   if (site && site !== 'same-origin' && site !== 'none') return true;
   const origin = request.headers.get('origin');
   if (!origin) return false;
+  // 호스팅이 요청을 넘기면서 내부 주소로 바꿀 수 있어, 원래 호스트(X-Forwarded-Host)도 같은 사이트로 본다.
+  // (Expo 공식 호스팅은 Origin을 공개 주소로 붙이고, 요청 주소는 내부 호스트다.)
+  const ownHosts = [new URL(request.url).host, request.headers.get('host'), request.headers.get('x-forwarded-host')];
   try {
-    const host = new URL(origin).host;
-    return host !== new URL(request.url).host && host !== request.headers.get('host');
+    return !ownHosts.includes(new URL(origin).host);
   } catch {
     return true;
   }

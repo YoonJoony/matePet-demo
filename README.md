@@ -39,7 +39,7 @@ KAKAO_REST_API_KEY=발급받은_키
 
 지도 표시용 키는 브라우저에 공개됩니다. Google Cloud에서 **Maps JavaScript API만 허용**하고 HTTP 리퍼러에 로컬·배포 도메인을 등록하세요. Places 서버용 키와 동일한 키를 넣으면 `/api/maps-config`는 503을 반환하며 키를 공개하지 않습니다. `.env.example`에는 변수 이름만 있습니다.
 
-서버 배포 현황과 다음 작업은 [서버 배포 Claude 인계 문서](./서버-배포-클로드-인계.md)를 확인하세요.
+웹 데모는 Expo 공식 호스팅(EAS Hosting)에 `npm run deploy`로 배포합니다. 서버용 키는 EAS 환경변수(Production, Sensitive)에 두고, 로컬 `.env`는 올리지 않습니다. 자세한 내용은 [서버 배포 인계 문서](./서버-배포-클로드-인계.md)를 확인하세요.
 
 ```bash
 npm run web

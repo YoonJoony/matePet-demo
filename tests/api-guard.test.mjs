@@ -12,6 +12,9 @@ test('requests sent from another site are rejected', async () => {
   assert.equal(otherOrigin?.status, 403);
   assert.equal(guardApi(request('10.0.0.3', { 'sec-fetch-site': 'same-origin' }), 'placesSearch', NOON), null);
   assert.equal(guardApi(request('10.0.0.4', { origin: 'https://demo.example' }), 'placesSearch', NOON), null);
+  // 호스팅이 내부 주소로 넘기고 원래 호스트를 X-Forwarded-Host로 알려 주는 경우
+  const proxied = new Request('https://internal.worker/api/places', { headers: { 'x-real-ip': '10.0.0.5', origin: 'https://demo.example', 'x-forwarded-host': 'demo.example' } });
+  assert.equal(guardApi(proxied, 'placesSearch', NOON), null);
 });
 
 test('each client is limited per minute and the window resets', async () => {
@@ -22,6 +25,14 @@ test('each client is limited per minute and the window resets', async () => {
   assert.equal(limited?.headers.get('retry-after'), '59');
   assert.equal(guardApi(request('10.0.1.2'), 'placePhoto', NOON + 1_000), null, 'other clients are not affected');
   assert.equal(guardApi(request('10.0.1.1'), 'placePhoto', NOON + 60_000), null, 'next minute is allowed');
+});
+
+test('Expo hosting X-Real-IP identifies clients separately', async () => {
+  const viaRealIp = (ip) => new Request('https://demo.example/api/places', { headers: { 'x-real-ip': ip, 'x-forwarded-for': '198.51.100.1' } });
+  const { perMinute } = API_LIMITS.placesSearch;
+  for (let i = 0; i < perMinute; i += 1) assert.equal(guardApi(viaRealIp('10.3.0.1'), 'placesSearch', NOON), null);
+  assert.equal(guardApi(viaRealIp('10.3.0.1'), 'placesSearch', NOON)?.status, 429);
+  assert.equal(guardApi(viaRealIp('10.3.0.2'), 'placesSearch', NOON), null, 'same proxy, different real IP');
 });
 
 test('the whole site stops at the daily cap until the next Korean day', async () => {

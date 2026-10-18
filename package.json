@@ -29,7 +29,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "test": "node --test tests/maps-config.test.mjs tests/api-guard.test.mjs",
+    "deploy": "EXPO_NO_DOTENV=1 expo export --platform web && EXPO_NO_DOTENV=1 npx -y eas-cli@25.2.0 deploy --prod --environment production --non-interactive"
   },
   "private": true
 }

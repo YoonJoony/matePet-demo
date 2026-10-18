@@ -29,6 +29,12 @@
     "scheme": "matepetdemo",
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "72522f57-b7ab-4d2a-abc9-c1337949c831"
+      }
+    },
+    "owner": "yunjunkim"
   }
 }
