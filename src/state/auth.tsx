@@ -44,7 +44,25 @@ const toProfile = (row: ProfileRow): Profile => ({
   marketingOptIn: row.marketing_opt_in,
 });
 
-type AuthStatus = 'loading' | 'signedOut' | 'needsProfile' | 'ready' | 'unavailable';
+// demo: 로그인 없이 샘플 사용자로 둘러보기(로그인 화면의 '데모 버전으로 시작하기'). 이 브라우저에 기억한다.
+type AuthStatus = 'loading' | 'signedOut' | 'needsProfile' | 'ready' | 'unavailable' | 'demo';
+
+const DEMO_KEY = 'matepet-demo-mode';
+function readDemo(): boolean {
+  try {
+    return window.localStorage.getItem(DEMO_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+function writeDemo(on: boolean) {
+  try {
+    if (on) window.localStorage.setItem(DEMO_KEY, '1');
+    else window.localStorage.removeItem(DEMO_KEY);
+  } catch {
+    // 저장소를 못 쓰면 이번 화면에서만 데모로 둔다.
+  }
+}
 
 type AuthValue = {
   status: AuthStatus;
@@ -56,6 +74,8 @@ type AuthValue = {
   kakaoAvatarUrl: string | null;
   signInWithKakao: () => Promise<void>;
   signOut: () => Promise<void>;
+  startDemo: () => void;
+  exitDemo: () => void;
   isNicknameTaken: (nickname: string) => Promise<boolean>;
   saveProfile: (input: ProfileInput) => Promise<void>;
 };
@@ -72,9 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(next);
     if (!next) {
       setProfile(null);
-      setStatus('signedOut');
+      setStatus(readDemo() ? 'demo' : 'signedOut');
       return;
     }
+    writeDemo(false); // 카카오로 로그인하면 데모는 끝난다
     const supabase = await getSupabase();
     const { data, error } = await supabase.from('profiles').select('*').eq('id', next.user.id).maybeSingle<ProfileRow>();
     if (error) {
@@ -105,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch((error: Error) => {
         if (cancelled) return;
         setMessage(error.message);
-        setStatus('unavailable');
+        setStatus(readDemo() ? 'demo' : 'unavailable');
       });
     return () => {
       cancelled = true;
@@ -123,6 +144,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     const supabase = await getSupabase();
     await supabase.auth.signOut();
+  }, []);
+
+  const startDemo = useCallback(() => {
+    writeDemo(true);
+    setStatus('demo');
+  }, []);
+
+  const exitDemo = useCallback(() => {
+    writeDemo(false);
+    setStatus('signedOut');
   }, []);
 
   const isNicknameTaken = useCallback(
@@ -169,8 +200,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const kakaoAvatarUrl = (metadata.avatar_url ?? metadata.picture ?? null) as string | null;
 
   const value = useMemo(
-    () => ({ status, session, profile, message, kakaoNickname, kakaoAvatarUrl, signInWithKakao, signOut, isNicknameTaken, saveProfile }),
-    [status, session, profile, message, kakaoNickname, kakaoAvatarUrl, signInWithKakao, signOut, isNicknameTaken, saveProfile],
+    () => ({ status, session, profile, message, kakaoNickname, kakaoAvatarUrl, signInWithKakao, signOut, startDemo, exitDemo, isNicknameTaken, saveProfile }),
+    [status, session, profile, message, kakaoNickname, kakaoAvatarUrl, signInWithKakao, signOut, startDemo, exitDemo, isNicknameTaken, saveProfile],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

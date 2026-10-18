@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { me } from '@/data/pets';
+import { useAuth } from '@/state/auth';
 import { LatLng, Place } from '@/data/places';
 import { locateRegion, LocateResult, Region } from '@/data/regions';
 import { useMyLocation } from '@/hooks/useMyLocation';
@@ -56,10 +57,12 @@ export function MapStateProvider({ children }: { children: ReactNode }) {
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
 
   // GPS를 쓰기로 했지만 위치를 모르면(권한 없음·실패·확인 중) 기본 동네를 기준으로 쓴다.
+  // 기본 동네: 로그인 사용자의 프로필 동네(없으면 데모 사용자 동네)
+  const homeRegion = useAuth().profile?.homeRegion ?? me.homeRegion;
   const gpsReady = myLocation.status === 'granted';
   const basis = useMemo<ExploreBasis>(
-    () => (chosenBasis.kind === 'gps' && !gpsReady ? { kind: 'region', region: me.homeRegion, source: 'default' } : chosenBasis),
-    [chosenBasis, gpsReady],
+    () => (chosenBasis.kind === 'gps' && !gpsReady ? { kind: 'region', region: homeRegion, source: 'default' } : chosenBasis),
+    [chosenBasis, gpsReady, homeRegion],
   );
 
   const { latitude: gpsLat, longitude: gpsLng } = myLocation.location;

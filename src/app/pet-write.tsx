@@ -35,6 +35,7 @@ import {
   vaccinationLabels,
 } from '@/data/pets';
 import { regionParents } from '@/data/regions';
+import { useAuth } from '@/state/auth';
 import { usePetPosts } from '@/state/petPosts';
 import { useRegionPicker } from '@/state/regionPicker';
 
@@ -59,7 +60,8 @@ export default function PetWriteScreen() {
   const editBlocked = params.editId !== undefined && !editing;
   const purpose: PetPurpose = editing?.purpose ?? (params.purpose === 'adoption' ? 'adoption' : 'mating');
   const savedDraft = editing ? undefined : drafts[purpose];
-  const [initialDraft] = useState<PetDraft>(() => (editing ? postToDraft(editing) : (savedDraft ?? emptyDraft())));
+  const homeRegion = useAuth().profile?.homeRegion; // 로그인 사용자의 기본 동네를 등록 동네 기본값으로
+  const [initialDraft] = useState<PetDraft>(() => (editing ? postToDraft(editing) : (savedDraft ?? emptyDraft(homeRegion))));
 
   // 임시저장한 글이 있으면 불러와서 시작한다.
   const [draft, setDraft] = useState<PetDraft>(initialDraft);
@@ -124,7 +126,7 @@ export default function PetWriteScreen() {
   };
 
   const close = () => {
-    const unchanged = editing || savedDraft ? JSON.stringify(initialDraft) === JSON.stringify(draft) : !isDraftDirty(draft);
+    const unchanged = editing || savedDraft ? JSON.stringify(initialDraft) === JSON.stringify(draft) : !isDraftDirty(draft, homeRegion);
     if (unchanged) router.back();
     else setConfirmExit(true);
   };

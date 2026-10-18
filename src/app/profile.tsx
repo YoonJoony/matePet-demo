@@ -55,7 +55,7 @@ export default function ProfileScreen() {
 // 로그인 영역. 로그인 전에는 데모 샘플 사용자로 보여 주고 카카오로 시작하기를 띄운다.
 // (글·찜은 아직 데모 데이터다 — 다음 단계에서 DB로 옮긴다.)
 function AccountCard() {
-  const { status, profile, message, signInWithKakao, signOut } = useAuth();
+  const { status, profile, message, signInWithKakao, signOut, exitDemo } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const start = () => {
     setError(null);
@@ -118,6 +118,11 @@ function AccountCard() {
           <Text style={styles.kakaoText}>카카오로 시작하기</Text>
         </Pressable>
       )}
+      {status === 'demo' ? (
+        <Pressable testID="profile-exit-demo" accessibilityRole="button" onPress={exitDemo} style={styles.exitDemo}>
+          <Text style={styles.exitDemoText}>데모 종료하고 로그인 화면으로</Text>
+        </Pressable>
+      ) : null}
       {error ? <Text style={styles.notice}>{error}</Text> : null}
     </View>
   );
@@ -170,6 +175,8 @@ const styles = StyleSheet.create({
   smallButtonText: { fontSize: 14, fontWeight: '700', color: colors.text },
   kakaoButton: { height: 48, marginBottom: 16, flexDirection: 'row', gap: 8, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.kakao },
   kakaoText: { fontSize: 16, fontWeight: '700', color: colors.kakaoText },
+  exitDemo: { alignSelf: 'center', paddingVertical: 6, marginTop: -8, marginBottom: 12 },
+  exitDemoText: { fontSize: 14, color: colors.subText, textDecorationLine: 'underline' },
   setupButton: { height: 48, marginBottom: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary },
   setupButtonText: { fontSize: 16, fontWeight: '700', color: colors.textStrong },
 });

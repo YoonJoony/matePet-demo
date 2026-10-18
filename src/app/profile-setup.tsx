@@ -80,8 +80,12 @@ function ProfileForm() {
     setError(null);
     try {
       if (trimmed !== profile?.nickname && (await isNicknameTaken(trimmed))) throw new Error('이미 쓰고 있는 닉네임이에요.');
+      const firstTime = !profile;
       await saveProfile({ nickname: trimmed, avatarUrl, homeRegion: region, marketingOptIn: agreed.marketing });
-      router.replace('/profile');
+      // 처음 설정이면 앱 첫 화면으로, 수정이면 프로필로 돌아간다.
+      if (firstTime) router.replace('/');
+      else if (router.canGoBack()) router.back();
+      else router.replace('/profile');
     } catch (e) {
       setError((e as Error).message);
     } finally {

@@ -46,7 +46,8 @@ export type PetDraft = {
 };
 
 // 등록 위치와 연락처는 사용자 기본 설정값을 미리 채운다 (기획서 2.1·7.1).
-export function emptyDraft(): PetDraft {
+// homeRegion: 로그인 사용자의 기본 동네(없으면 데모 사용자 동네)
+export function emptyDraft(homeRegion: Region = me.homeRegion): PetDraft {
   return {
     photos: [],
     title: '',
@@ -68,7 +69,7 @@ export function emptyDraft(): PetDraft {
     reason: '',
     personality: '',
     habits: '',
-    region: me.homeRegion,
+    region: homeRegion,
     addressDetail: me.defaultAddressDetail,
     chat: true,
     showPhone: false,
@@ -111,8 +112,8 @@ export function postToDraft(post: PetPost): PetDraft {
   };
 }
 
-export function isDraftDirty(draft: PetDraft): boolean {
-  return JSON.stringify(draft) !== JSON.stringify(emptyDraft());
+export function isDraftDirty(draft: PetDraft, homeRegion?: Region): boolean {
+  return JSON.stringify(draft) !== JSON.stringify(emptyDraft(homeRegion));
 }
 
 export type DraftField = 'photos' | 'title' | 'kind' | 'sex' | 'neighborhood' | 'vaccination' | 'neutered' | 'birthDate' | 'contact';

@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { AuthGate } from '@/components/AuthGate';
 import { colors } from '@/components/theme';
 import { AuthProvider } from '@/state/auth';
 import { ChatsProvider } from '@/state/chats';
@@ -22,7 +23,7 @@ export default function RootLayout() {
         <meta name="theme-color" content={colors.background} />
         <style>{`html, body { background-color: ${colors.background}; }`}</style>
       </Head>
-      {/* 로그인 상태(카카오 로그인·내 프로필)는 모든 화면이 함께 쓴다. */}
+      {/* 로그인 상태(카카오 로그인·내 프로필)는 모든 화면이 함께 쓴다. 로그인·프로필 설정 전에는 AuthGate가 앱 화면을 막는다. */}
       <AuthProvider>
         <MapStateProvider>
           <PetPostsProvider>
@@ -30,7 +31,9 @@ export default function RootLayout() {
               <RegionPickerProvider>
                 <View style={styles.page}>
                   <View style={styles.app}>
-                    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+                    <AuthGate>
+                      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+                    </AuthGate>
                   </View>
                 </View>
                 <StatusBar style="light" />
