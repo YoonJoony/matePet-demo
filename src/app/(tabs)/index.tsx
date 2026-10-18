@@ -270,8 +270,11 @@ export default function HomeMapScreen() {
               </Text>
             </View>
           </Pressable>
-          <Pressable testID="map-search-button" accessibilityRole="search" accessibilityLabel="주변 시설 검색" hitSlop={6} onPress={() => router.push('/map-search')} style={styles.iconButton}>
-            <Ionicons name="search" size={22} color={colors.text} />
+          {/* 지역 이름 오른쪽 빈 곳부터 돋보기까지는 반려용품 매장 검색으로 들어간다. */}
+          <Pressable testID="map-search-button" accessibilityRole="search" accessibilityLabel="주변 시설 검색" onPress={() => router.push('/map-search')} style={styles.searchZone}>
+            <View style={styles.iconButton}>
+              <Ionicons name="search" size={22} color={colors.text} />
+            </View>
           </Pressable>
           <Pressable testID="map-profile-button" accessibilityRole="button" accessibilityLabel="내 프로필" hitSlop={6} onPress={() => router.push('/profile')} style={styles.avatar}>
             <Ionicons name="person" size={18} color={colors.subText} />
@@ -387,8 +390,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: 'rgba(32,34,39,0.94)',
   },
-  area: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  areaText: { flex: 1 },
+  // 지역 버튼은 글자 폭만큼만 누를 수 있다(길면 줄여 표시). 나머지 폭은 매장 검색 영역.
+  area: { flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'stretch' },
+  areaText: { flexShrink: 1 },
+  searchZone: { flex: 1, minWidth: 44, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
   areaTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   areaName: { flexShrink: 1, fontSize: 17, fontWeight: '700', color: colors.text },
   areaBasis: { fontSize: 12, color: colors.subText },

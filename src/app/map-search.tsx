@@ -8,7 +8,9 @@ import { colors } from '@/components/theme';
 import { formatDistance, Place, placeEmoji, searchPlaces } from '@/data/places';
 import { useMapState } from '@/state/mapState';
 
-const suggestions = ['카페', '편의점', '약국', '미용실', '헬스장', '세탁소', '빵집', '꽃집'];
+// 반려동물 매장 추천어. 누르면 그 낱말로 반경 3km 키워드 검색을 한다(구글 Text Search 1회).
+// '24시 동물병원'은 검색어일 뿐이라 결과에 24시간 운영 여부를 표시하지 않는다(기획서 8.2).
+const suggestions = ['반려용품', '동물병원', '애견미용', '24시 동물병원', '동물약국', '애견카페', '애견호텔', '애견유치원'];
 
 type SearchState = { status: 'idle' } | { status: 'loading'; query: string } | { status: 'done'; query: string; places: Place[] } | { status: 'error'; query: string; message: string };
 

@@ -13,9 +13,13 @@ import { RegionPickerProvider } from '@/state/regionPicker';
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      {/* 서버 출력 모드에서는 app.json 이름이 웹 제목으로 들어가지 않아 직접 지정한다. */}
+      {/* 서버 출력 모드에서는 app.json 이름이 웹 제목으로 들어가지 않아 직접 지정한다.
+          휴대폰 브라우저는 상태 표시줄·홈 바 뒤와 당겨서 드러나는 곳에 페이지 배경을 보여 주므로,
+          페이지 배경과 브라우저 바 색(theme-color)을 앱 배경과 맞춘다(지정하지 않으면 흰색). */}
       <Head>
         <title>반려동물 매칭 데모</title>
+        <meta name="theme-color" content={colors.background} />
+        <style>{`html, body { background-color: ${colors.background}; }`}</style>
       </Head>
       <MapStateProvider>
         <PetPostsProvider>
