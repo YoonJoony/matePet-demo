@@ -9,7 +9,7 @@ import type { LatLng } from '@/data/places';
 
 import { createBoundaryOverlay } from '@/components/region/boundaryOverlay';
 
-import type { PetMapMarker, StoreMapProps } from './StoreMap.types';
+import type { MapMarker, PetMapMarker, StoreMapProps } from './StoreMap.types';
 
 // 구글 지도(다크 모드) 위에 반려동물 글 원형 프로필과 구글 Places API 장소를 마커로 올린다.
 // Map ID를 쓰는 고급 마커는 다크 모드와 함께 쓸 수 없어(공식 문서), OverlayView로 HTML 마커를 직접 그린다.
@@ -50,6 +50,15 @@ const markerCss = `
   cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.6); font-family: system-ui, sans-serif; }
 .pet-cluster-count { font-size: 18px; font-weight: 800; line-height: 20px; }
 .pet-cluster-label { font-size: 10px; font-weight: 600; line-height: 12px; color: #C6C8CD; }
+/* 고른 프로필 밑에 가려진 글 수 (왼쪽 위). 누르면 그 자리 글 목록을 연다. */
+.pet-hidden-badge { position: absolute; left: -12px; top: -6px; box-sizing: border-box; min-width: 24px; height: 20px; padding: 0 5px; border-radius: 10px;
+  border: 1.5px solid #fff; background: rgba(22,23,27,.95); color: #fff; font: 800 11px/17px system-ui, sans-serif; text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,.6); cursor: pointer; }
+/* 주변 반려동물 시설 (기획서 4.4): 프로필 사진보다 작게, 프로필 아래 층에 둔다. 주변 시설 모드에서는 조금 크게 강조한다. */
+.facility-marker { position: absolute; z-index: 8; transform: translate(-50%, -50%); box-sizing: border-box; width: 26px; height: 26px; border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,.6); background: rgba(32,34,39,.92); display: flex; align-items: center; justify-content: center;
+  font-size: 13px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.5); }
+.facility-marker.is-emphasized { width: 34px; height: 34px; font-size: 17px; border: 2px solid ${colors.primary}; }
 `;
 
 function createStoreMarkerElement(emoji: string, name: string): HTMLDivElement {
@@ -64,6 +73,16 @@ function createStoreMarkerElement(emoji: string, name: string): HTMLDivElement {
   label.className = 'store-marker-label';
   label.textContent = name; // 구글에서 받은 상호는 textContent로 넣어 HTML로 해석되지 않게 한다.
   element.append(pin, label);
+  return element;
+}
+
+function createFacilityElement(item: MapMarker, emphasized: boolean): HTMLDivElement {
+  const element = document.createElement('div');
+  element.className = emphasized ? 'facility-marker is-emphasized' : 'facility-marker';
+  element.dataset.testid = `facility-marker-${item.id}`;
+  element.setAttribute('role', 'button');
+  element.setAttribute('aria-label', `${item.name} 시설`); // 구글에서 받은 상호라 속성 값으로만 넣는다
+  element.textContent = item.emoji;
   return element;
 }
 
@@ -123,8 +142,20 @@ function createClusterElement(key: string, members: PetMapMarker[]): HTMLDivElem
   return element;
 }
 
+function createHiddenBadge(key: string, count: number): HTMLSpanElement {
+  const badge = document.createElement('span');
+  badge.className = 'pet-hidden-badge';
+  badge.dataset.clusterKey = key;
+  badge.dataset.testid = 'pet-hidden-badge';
+  badge.setAttribute('role', 'button');
+  badge.setAttribute('aria-label', `같은 자리 등록 글 ${count}개 더 보기`);
+  badge.textContent = `+${count}`;
+  return badge;
+}
+
 // 화면에서 이 거리(px)보다 가까운 프로필은 숫자 묶음으로 합친다 (원 지름 정도).
 const CLUSTER_DISTANCE_PX = 56;
+const HIDDEN_KEY = 'hidden';
 
 type PetLayer = google.maps.OverlayView & { update: (pets: PetMapMarker[], selectedId: string | null) => void };
 
@@ -162,32 +193,46 @@ function createPetLayer(onSelectPet: (id: string) => void, onSelectCluster: (mem
     draw() {
       const projection = this.getProjection();
       if (!projection) return;
+      const toPixel = (pet: PetMapMarker) => projection.fromLatLngToDivPixel(new google.maps.LatLng(pet.latitude, pet.longitude));
       // 앞에서부터(가까운 순) 기준점을 잡고, 기준점 근처의 프로필을 묶는다. 고른 프로필은 묶지 않고 따로 크게 그린다.
+      const selected = this.pets.find((pet) => pet.id === this.selectedId);
+      const selectedPixel = selected ? toPixel(selected) : null;
       const groups: { x: number; y: number; members: PetMapMarker[] }[] = [];
-      const placed: HTMLElement[] = [];
       for (const pet of this.pets) {
-        const pixel = projection.fromLatLngToDivPixel(new google.maps.LatLng(pet.latitude, pet.longitude));
+        if (pet === selected) continue;
+        const pixel = toPixel(pet);
         if (!pixel) continue;
-        if (pet.id === this.selectedId) {
-          const element = createPetElement(pet, true);
-          element.style.left = `${pixel.x}px`;
-          element.style.top = `${pixel.y}px`;
-          placed.push(element);
-          continue;
-        }
         const group = groups.find((item) => Math.hypot(item.x - pixel.x, item.y - pixel.y) < CLUSTER_DISTANCE_PX);
         if (group) group.members.push(pet);
         else groups.push({ x: pixel.x, y: pixel.y, members: [pet] });
       }
       this.clusters.clear();
+      const placed: HTMLElement[] = [];
+      // 고른 프로필 밑에 가려지는 묶음·프로필은 따로 그리지 않고, 고른 프로필에 '+N' 배지로 단다.
+      const hidden: PetMapMarker[] = [];
       groups.forEach((group, index) => {
+        if (selectedPixel && Math.hypot(group.x - selectedPixel.x, group.y - selectedPixel.y) < CLUSTER_DISTANCE_PX) {
+          hidden.push(...group.members);
+          return;
+        }
         const key = `c${index}`;
         const element = group.members.length === 1 ? createPetElement(group.members[0], false) : createClusterElement(key, group.members);
         if (group.members.length > 1) this.clusters.set(key, group.members);
         element.style.left = `${group.x}px`;
         element.style.top = `${group.y}px`;
-        placed.unshift(element); // 고른 프로필이 맨 마지막(맨 위)에 오도록 앞에 넣는다.
+        placed.unshift(element); // 앞쪽(가까운) 묶음이 위에 오도록 앞에 넣는다.
       });
+      if (selected && selectedPixel) {
+        const element = createPetElement(selected, true);
+        if (hidden.length > 0) {
+          // 배지를 누르면 고른 글까지 포함한 그 자리 글 전체를 묶음으로 연다.
+          this.clusters.set(HIDDEN_KEY, [selected, ...hidden]);
+          element.append(createHiddenBadge(HIDDEN_KEY, hidden.length));
+        }
+        element.style.left = `${selectedPixel.x}px`;
+        element.style.top = `${selectedPixel.y}px`;
+        placed.push(element); // 고른 프로필은 맨 마지막(맨 위)
+      }
       this.root.replaceChildren(...placed);
     }
   }
@@ -256,6 +301,20 @@ function createHtmlMarker(map: google.maps.Map, element: HTMLDivElement, point: 
   return overlay;
 }
 
+// 마커 목록에 맞춰 오버레이를 추가·삭제한다. 이미 있는 id는 그대로 둔다.
+function syncMarkers(map: google.maps.Map, overlays: Map<string, HtmlMarker>, items: MapMarker[], create: (item: MapMarker) => HTMLDivElement, onClick: (id: string) => void) {
+  const visibleIds = new Set(items.map((item) => item.id));
+  for (const [id, overlay] of overlays) {
+    if (!visibleIds.has(id)) {
+      overlay.setMap(null);
+      overlays.delete(id);
+    }
+  }
+  for (const item of items) {
+    if (!overlays.has(item.id)) overlays.set(item.id, createHtmlMarker(map, create(item), item, () => onClick(item.id)));
+  }
+}
+
 // 지도 아래 SHEET_RADIUS만큼은 시트에 가려지므로, 보이는 영역의 가운데에 오도록 반만큼 위로 올린다.
 function centerVisible(map: google.maps.Map, target: google.maps.LatLngLiteral) {
   map.setCenter(target);
@@ -267,6 +326,8 @@ export function StoreMap({
   markers,
   selectedId,
   onSelect,
+  facilities,
+  facilitiesEmphasized,
   pets,
   selectedPetId,
   onSelectPet,
@@ -279,12 +340,14 @@ export function StoreMap({
   bottomInset,
   recenterKey,
   zoom,
+  restoreView,
   highlightRegionCode,
 }: StoreMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const markersRef = useRef(new Map<string, HtmlMarker>());
+  const facilitiesRef = useRef(new Map<string, HtmlMarker>());
   const myMarkerRef = useRef<HtmlMarker | null>(null);
   const petLayerRef = useRef<PetLayer | null>(null);
   const boundaryRef = useRef<ReturnType<typeof createBoundaryOverlay> | null>(null);
@@ -302,6 +365,7 @@ export function StoreMap({
     style.textContent = markerCss;
     document.head.appendChild(style);
     const markerMap = markersRef.current;
+    const facilityMap = facilitiesRef.current;
 
     // 키가 거부되면(리퍼러 제한, API 미사용 설정 등) 구글이 이 전역 함수를 부른다.
     (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () =>
@@ -330,7 +394,7 @@ export function StoreMap({
         });
         created.addListener('idle', () => {
           const c = created.getCenter();
-          if (c) handlersRef.current.onMoveEnd?.({ latitude: c.lat(), longitude: c.lng() });
+          if (c) handlersRef.current.onMoveEnd?.({ latitude: c.lat(), longitude: c.lng() }, created.getZoom() ?? initialZoomRef.current);
         });
         const myElement = createMyLocationElement();
         myElement.style.display = 'none'; // GPS 위치를 알 때만 보인다
@@ -360,8 +424,9 @@ export function StoreMap({
     return () => {
       cancelled = true;
       style.remove();
-      for (const marker of markerMap.values()) marker.setMap(null);
+      for (const marker of [...markerMap.values(), ...facilityMap.values()]) marker.setMap(null);
       markerMap.clear();
+      facilityMap.clear();
       myMarkerRef.current?.setMap(null);
       petLayerRef.current?.setMap(null);
       boundaryRef.current?.remove();
@@ -382,23 +447,25 @@ export function StoreMap({
     map?.setZoom(zoom);
   }, [map, zoom]);
 
-  // 가게 마커를 목록에 맞춰 추가·삭제
+  // 이전 지도 위치로 되돌린다. 모드 전환으로 zoom이 함께 바뀌어도 되돌린 배율이 남도록 zoom 효과 뒤에 두고,
+  // 배율 애니메이션 도중에 중심이 어긋나지 않게 애니메이션 없이 중심·배율을 한 번에 맞춘다.
+  useEffect(() => {
+    if (!map || !restoreView) return;
+    map.moveCamera({ center: { lat: restoreView.center.latitude, lng: restoreView.center.longitude }, zoom: restoreView.zoom });
+  }, [map, restoreView]);
+
+  // 고른 가게 핀을 목록에 맞춰 추가·삭제
+  useEffect(() => {
+    if (map) syncMarkers(map, markersRef.current, markers, (item) => createStoreMarkerElement(item.emoji, item.name), (id) => handlersRef.current.onSelect(id));
+  }, [map, markers]);
+
+  // 주변 시설 아이콘. 강조 여부가 바뀌면 이미 그린 아이콘의 크기도 바꾼다.
   useEffect(() => {
     if (!map) return;
-    const markerMap = markersRef.current;
-    const visibleIds = new Set(markers.map((marker) => marker.id));
-    for (const [id, marker] of markerMap) {
-      if (!visibleIds.has(id)) {
-        marker.setMap(null);
-        markerMap.delete(id);
-      }
-    }
-    for (const item of markers) {
-      if (markerMap.has(item.id)) continue;
-      const element = createStoreMarkerElement(item.emoji, item.name);
-      markerMap.set(item.id, createHtmlMarker(map, element, item, () => handlersRef.current.onSelect(item.id)));
-    }
-  }, [map, markers]);
+    const facilityMap = facilitiesRef.current;
+    syncMarkers(map, facilityMap, facilities, (item) => createFacilityElement(item, facilitiesEmphasized), (id) => handlersRef.current.onSelect(id));
+    for (const marker of facilityMap.values()) marker.element.classList.toggle('is-emphasized', facilitiesEmphasized);
+  }, [map, facilities, facilitiesEmphasized]);
 
   // 고른 가게·동물 프로필을 지도 가운데로 이동
   const selected = markers.find((marker) => marker.id === selectedId) ?? pets.find((pet) => pet.id === selectedPetId);

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { ComponentProps, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { ComponentProps, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,7 +9,7 @@ import { BottomSheet, SheetSnap } from '@/components/map/BottomSheet';
 import { ExploreContent } from '@/components/map/ExploreContent';
 import { PlaceSheetBody, PlaceSheetFooter, PlaceSheetHeader } from '@/components/map/PlaceSheet';
 import { StoreMap } from '@/components/map/StoreMap';
-import type { MapMarker, PetMapMarker } from '@/components/map/StoreMap.types';
+import type { MapMarker, MapView, PetMapMarker } from '@/components/map/StoreMap.types';
 import { PetNearbyList, PetRows, PetSummary, SheetMode, SheetModeSwitch, SheetTitleHeader } from '@/components/pets/PetMapSheet';
 import { PetFilterBar } from '@/components/pets/PetFilterBar';
 import { WriteMenu } from '@/components/pets/WriteMenu';
@@ -24,6 +24,8 @@ const RESEARCH_DISTANCE_METERS = 300;
 const ZOOM_BY_MODE: Record<SheetMode, number> = { pets: 13, places: 15 };
 
 type SearchResult = { key: string; places: Place[]; error: string | null };
+
+const toMapMarker = (place: Place): MapMarker => ({ id: place.id, name: place.name, emoji: placeEmoji(place), latitude: place.latitude, longitude: place.longitude });
 
 // 홈 = 지도 (기획서 4). 교배·입양 글의 원형 프로필과 주변 시설을 함께 탐색한다.
 export default function HomeMapScreen() {
@@ -48,12 +50,12 @@ export default function HomeMapScreen() {
     requestLocation();
   }, [requestLocation]);
 
-  // 주변 시설 모드에서 검색 기준 위치나 카테고리가 바뀌면 구글 Places API를 다시 부른다 (결과는 저장하지 않음).
+  // 검색 기준 위치나 카테고리가 바뀌면 구글 Places API를 다시 부른다 (결과는 저장하지 않음).
+  // 동물 찾기 모드에서도 시설 아이콘을 그리므로 두 모드가 같은 검색 결과를 쓴다 (모드를 바꿔도 다시 부르지 않음).
   const locating = myLocation.status === 'locating';
   const queryKey = `${searchCenter.latitude.toFixed(5)},${searchCenter.longitude.toFixed(5)}|${category?.label ?? 'default'}`;
-  const searching = mode === 'places';
   useEffect(() => {
-    if (locating || !searching) return;
+    if (locating) return;
     const controller = new AbortController();
     searchPlaces({ center: searchCenter, category: category ?? undefined }, controller.signal)
       .then((places) => setResult({ key: queryKey, places, error: null }))
@@ -61,7 +63,7 @@ export default function HomeMapScreen() {
         if (!controller.signal.aborted) setResult({ key: queryKey, places: [], error: error.message });
       });
     return () => controller.abort();
-  }, [locating, searching, queryKey, searchCenter, category]);
+  }, [locating, queryKey, searchCenter, category]);
   const loading = locating || result.key !== queryKey;
 
   // 검색 중심에서 가까운 순, 모집 중·상담 중 글만 (기획서 4.1, 7.5). 목록 탭과 같은 필터를 쓴다.
@@ -96,15 +98,14 @@ export default function HomeMapScreen() {
     const list = loading ? [] : result.places;
     return likedOnly ? list.filter((place) => likedPlaceIds.has(place.id)) : list;
   }, [loading, result.places, likedOnly, likedPlaceIds]);
-  // 검색된 가게는 지도에 아이콘을 따로 그리지 않는다(구글 지도에 이미 가게 아이콘이 있음).
-  // 카드·검색 결과·구글 아이콘에서 고른 가게 하나만 핀으로 고정한다.
-  const markers = useMemo<MapMarker[]>(
-    () =>
-      selectedPlace
-        ? [{ id: selectedPlace.id, name: selectedPlace.name, emoji: placeEmoji(selectedPlace), latitude: selectedPlace.latitude, longitude: selectedPlace.longitude }]
-        : [],
-    [selectedPlace],
-  );
+  // 카드·검색 결과·지도 아이콘에서 고른 가게 하나는 큰 핀으로 고정한다.
+  const markers = useMemo<MapMarker[]>(() => (selectedPlace ? [toMapMarker(selectedPlace)] : []), [selectedPlace]);
+  // 주변 반려동물 시설은 두 모드 모두 작은 아이콘으로 그린다 (기획서 4.4·8.2). 주변 시설 모드에서는 강조하고 '관심 시설만 보기'를 따른다.
+  // 고른 가게는 큰 핀과 겹치지 않게 뺀다.
+  const facilities = useMemo<MapMarker[]>(() => {
+    const list = mode === 'places' ? places : loading ? [] : result.places;
+    return list.filter((place) => place.id !== selectedPlace?.id).map(toMapMarker);
+  }, [mode, places, loading, result.places, selectedPlace?.id]);
   // 동물 찾기 모드에서만 원형 프로필을 그린다. 위치는 등록 동네의 중심점이다.
   const petMarkers = useMemo<PetMapMarker[]>(
     () =>
@@ -140,14 +141,22 @@ export default function HomeMapScreen() {
     setClusterIds(ids);
     setSnap('mid');
   }, []);
+  // 동물 찾기 지도 위치 (기획서 4.4). 주변 시설에서 돌아올 때 이 위치·배율로 되돌린다.
+  // 그사이 탐색 지역이 바뀌었으면(동네 선택·이 지역에서 다시 검색·내 위치) 새 지역을 보여 주므로 되돌리지 않는다.
+  const searchKey = `${searchCenter.latitude},${searchCenter.longitude}|${recenterKey}`;
+  const petsViewRef = useRef<MapView & { searchKey: string }>(null);
+  const [restoreView, setRestoreView] = useState<MapView | null>(null);
   const changeMode = (next: SheetMode) => {
+    const saved = petsViewRef.current;
+    if (next === 'pets' && mode !== 'pets' && saved?.searchKey === searchKey) setRestoreView({ center: saved.center, zoom: saved.zoom });
     setMode(next);
     setSelectedPetId(null);
     setClusterIds(null);
   };
 
+  // 지도 아이콘은 두 모드에서 그리므로 '관심 시설만 보기'를 적용하기 전 결과에서 찾는다.
   const onSelectMarker = (id: string) => {
-    const place = places.find((item) => item.id === id) ?? (selectedPlace?.id === id ? selectedPlace : null);
+    const place = result.places.find((item) => item.id === id) ?? (selectedPlace?.id === id ? selectedPlace : null);
     if (place) selectPlace(place);
   };
   const closePlace = () => selectPlace(null);
@@ -165,7 +174,13 @@ export default function HomeMapScreen() {
     },
     [searchCenter, selectPlace],
   );
-  const onMoveEnd = useCallback((center: LatLng) => setMapCenter(center), []);
+  const onMoveEnd = useCallback(
+    (center: LatLng, zoom: number) => {
+      setMapCenter(center);
+      if (mode === 'pets') petsViewRef.current = { center, zoom, searchKey };
+    },
+    [mode, searchKey],
+  );
   const showResearch = !selectedPlace && !selectedPet && (mode === 'pets' || !loading) && mapCenter !== null && distanceBetween(mapCenter, searchCenter) > RESEARCH_DISTANCE_METERS;
 
   const onLayout = (event: LayoutChangeEvent) => setHeight(event.nativeEvent.layout.height);
@@ -212,6 +227,8 @@ export default function HomeMapScreen() {
         markers={markers}
         selectedId={selectedPlace?.id ?? null}
         onSelect={onSelectMarker}
+        facilities={facilities}
+        facilitiesEmphasized={mode === 'places'}
         pets={petMarkers}
         selectedPetId={selectedPet?.post.id ?? null}
         onSelectPet={onSelectPetMarker}
@@ -225,6 +242,7 @@ export default function HomeMapScreen() {
         recenterKey={recenterKey}
         highlightRegionCode={basis.kind === 'region' ? basis.region.code : null}
         zoom={ZOOM_BY_MODE[mode]}
+        restoreView={restoreView}
       />
 
       <View style={[styles.top, { top: insets.top + 8 }]} pointerEvents="box-none">

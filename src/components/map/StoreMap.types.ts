@@ -17,10 +17,17 @@ export type PetMapMarker = {
   sex: PetSex;
 };
 
+// 되돌릴 지도 위치. 새 값이 올 때마다 이 중심·배율로 맞춘다 (동물 찾기로 돌아올 때 이전 위치 복원, 기획서 4.4).
+export type MapView = { center: LatLng; zoom: number };
+
 export type StoreMapProps = {
+  // 고른 가게 하나를 큰 핀으로 표시
   markers: MapMarker[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  // 주변 반려동물 시설 작은 아이콘 (기획서 4.4·8.2). 누르면 onSelect. emphasized면 조금 크게(주변 시설 모드).
+  facilities: MapMarker[];
+  facilitiesEmphasized: boolean;
   pets: PetMapMarker[];
   selectedPetId: string | null;
   onSelectPet: (id: string) => void;
@@ -29,8 +36,8 @@ export type StoreMapProps = {
   // 구글 지도에 원래 표시되는 가게 아이콘(POI)을 눌렀을 때 (구글 장소 ID)
   onSelectPoi?: (placeId: string) => void;
   onPressMap?: () => void;
-  // 지도를 다 움직인 뒤의 중심. "이 지역에서 다시 검색" 버튼에 쓴다.
-  onMoveEnd?: (center: LatLng) => void;
+  // 지도를 다 움직인 뒤의 중심·배율. "이 지역에서 다시 검색" 버튼과 위치 복원에 쓴다.
+  onMoveEnd?: (center: LatLng, zoom: number) => void;
   // 탐색 중심 (현재 위치·선택한 동네 대표 위치·지도 중심). 바뀌거나 recenterKey가 바뀌면 이 위치로 이동한다.
   center: LatLng;
   // 실제 GPS 위치. 알 때만 '내 장소' 점을 그린다 (위치를 모를 때 기본 좌표에 그리지 않음).
@@ -42,4 +49,5 @@ export type StoreMapProps = {
   highlightRegionCode: string | null;
   // 지도 배율. 값이 바뀌면 그 배율로 맞춘다 (동물 찾기는 넓게, 주변 시설은 가깝게).
   zoom: number;
+  restoreView: MapView | null;
 };
