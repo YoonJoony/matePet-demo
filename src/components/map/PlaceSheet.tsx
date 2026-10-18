@@ -8,6 +8,10 @@ import { useMapState } from '@/state/mapState';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 const detailTabs = ['홈', '사진', '후기'] as const;
+// 구글 사진은 한 장 그릴 때마다 유료 호출이라 처음에는 몇 장만 불러오고, 나머지는 '사진 더 보기'를 눌렀을 때 불러온다.
+const PHOTO_PREVIEW_COUNT = 3;
+// 작은 칸·큰 칸·사진 탭이 같은 주소를 쓰게 해, 시트를 펼치거나 탭을 바꿔도 같은 사진을 다시 호출하지 않게 한다.
+const DETAIL_PHOTO_WIDTH = 600;
 type DetailTab = (typeof detailTabs)[number];
 
 type DetailState = { id: string; detail: PlaceDetail | null; error: string | null };
@@ -64,8 +68,13 @@ export function PlaceSheetHeader({ place, expanded, onClose }: { place: Place; e
 export function PlaceSheetBody({ place, expanded }: { place: Place; expanded: boolean }) {
   const { detail, loading, error } = usePlaceDetail(place);
   const [tab, setTab] = useState<DetailTab>('홈');
-  // 상세를 받기 전에는 목록에서 받은 사진을 먼저 보여 준다.
-  const photos = detail?.photos.length ? detail.photos : place.photos;
+  const [showAllPhotos, setShowAllPhotos] = useState(false);
+  // 목록에서 받은 사진이 있으면 그대로 쓴다. 상세 응답은 같은 사진이라도 사진 이름(주소)이 달라
+  // 갈아 끼우면 같은 사진을 다시 불러오게 된다(유료 호출). 목록 사진이 없을 때만 상세 사진을 쓴다.
+  const photos = place.photos.length ? place.photos : (detail?.photos ?? []);
+  const shownPhotos = showAllPhotos ? photos : photos.slice(0, PHOTO_PREVIEW_COUNT);
+  const hiddenPhotoCount = photos.length - shownPhotos.length;
+  const showMorePhotos = () => setShowAllPhotos(true);
 
   return (
     <View testID={expanded ? 'place-detail' : 'place-summary'}>
@@ -94,9 +103,22 @@ export function PlaceSheetBody({ place, expanded }: { place: Place; expanded: bo
 
       {photos.length > 0 ? (
         <ScrollView testID="place-photos" horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>
-          {photos.map((photo) => (
+          {shownPhotos.map((photo) => (
             <PhotoTile key={photo.name} photo={photo} large={expanded} />
           ))}
+          {hiddenPhotoCount > 0 && (
+            <Pressable
+              testID="place-photos-more"
+              accessibilityRole="button"
+              accessibilityLabel={`사진 ${hiddenPhotoCount}장 더 보기`}
+              onPress={showMorePhotos}
+              style={[styles.photo, expanded && styles.photoLarge, styles.morePhotos]}
+            >
+              <Ionicons name="images-outline" size={22} color={colors.text} />
+              <Text style={styles.morePhotosText}>사진 더 보기</Text>
+              <Text style={styles.meta}>+{hiddenPhotoCount}</Text>
+            </Pressable>
+          )}
         </ScrollView>
       ) : (
         <View style={[styles.noPhoto, styles.padded]}>
@@ -124,7 +146,7 @@ export function PlaceSheetBody({ place, expanded }: { place: Place; expanded: bo
             ) : error ? (
               <Text style={styles.notice}>{error}</Text>
             ) : detail ? (
-              <DetailTabContent detail={detail} tab={tab} photos={photos} />
+              <DetailTabContent detail={detail} tab={tab} photos={shownPhotos} hiddenPhotoCount={hiddenPhotoCount} onShowMorePhotos={showMorePhotos} />
             ) : null}
           </View>
         </>
@@ -144,15 +166,41 @@ function RatingLine({ detail, loading }: { detail: PlaceDetail | null; loading: 
   );
 }
 
-function DetailTabContent({ detail, tab, photos }: { detail: PlaceDetail; tab: DetailTab; photos: Place['photos'] }) {
+// photos는 지금 보여 주는 사진만 받는다 (작성자 표시도 보여 준 사진 기준).
+function DetailTabContent({
+  detail,
+  tab,
+  photos,
+  hiddenPhotoCount,
+  onShowMorePhotos,
+}: {
+  detail: PlaceDetail;
+  tab: DetailTab;
+  photos: Place['photos'];
+  hiddenPhotoCount: number;
+  onShowMorePhotos: () => void;
+}) {
   if (tab === '사진') {
     return (
       <View style={styles.photoGrid}>
         {photos.map((photo) => (
           <View key={photo.name} style={styles.gridCell}>
-            <Image source={{ uri: photoUrl(photo, 300) }} style={styles.gridPhoto} accessibilityLabel={`사진 제공: ${photo.author}`} />
+            <Image source={{ uri: photoUrl(photo, DETAIL_PHOTO_WIDTH) }} style={styles.gridPhoto} accessibilityLabel={`사진 제공: ${photo.author}`} />
           </View>
         ))}
+        {hiddenPhotoCount > 0 && (
+          <Pressable
+            testID="place-photo-grid-more"
+            accessibilityRole="button"
+            accessibilityLabel={`사진 ${hiddenPhotoCount}장 더 보기`}
+            onPress={onShowMorePhotos}
+            style={[styles.gridCell, styles.morePhotos]}
+          >
+            <Ionicons name="images-outline" size={20} color={colors.text} />
+            <Text style={styles.morePhotosText}>사진 더 보기</Text>
+            <Text style={styles.meta}>+{hiddenPhotoCount}</Text>
+          </Pressable>
+        )}
         <Attribution photos={photos} />
       </View>
     );
@@ -201,7 +249,7 @@ function DetailTabContent({ detail, tab, photos }: { detail: PlaceDetail; tab: D
 function PhotoTile({ photo, large }: { photo: Place['photos'][number]; large: boolean }) {
   return (
     <View style={[styles.photo, large && styles.photoLarge]}>
-      <Image source={{ uri: photoUrl(photo, large ? 600 : 300) }} style={styles.photoImage} accessibilityLabel={`사진 제공: ${photo.author}`} />
+      <Image source={{ uri: photoUrl(photo, DETAIL_PHOTO_WIDTH) }} style={styles.photoImage} accessibilityLabel={`사진 제공: ${photo.author}`} />
     </View>
   );
 }
@@ -270,6 +318,8 @@ const styles = StyleSheet.create({
   photo: { width: 112, height: 136, borderRadius: 8, overflow: 'hidden', backgroundColor: colors.surfaceRaised },
   photoLarge: { width: 176, height: 220 },
   photoImage: { width: '100%', height: '100%' },
+  morePhotos: { alignItems: 'center', justifyContent: 'center', gap: 4 },
+  morePhotosText: { fontSize: 13, fontWeight: '700', color: colors.text },
   noPhoto: { alignItems: 'center', gap: 4, paddingVertical: 12, marginHorizontal: 16, borderRadius: 8, backgroundColor: colors.surfaceRaised },
   noPhotoEmoji: { fontSize: 32 },
   tabs: { flexDirection: 'row', marginTop: 18, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },

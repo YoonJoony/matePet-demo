@@ -1,8 +1,9 @@
 // GET /api/regions/locate?x=경도&y=위도 → 좌표가 속한 행정동
 // 카카오 coord2regioncode(행정동 H)를 우선 쓰고, 경계 데이터(통계청 SGIS 가공본)의 같은 코드로 연결한다.
 // 경계 판정 결과와 다르면 check에 남겨 연계 상태를 확인할 수 있게 한다. 가까운 대표 위치로 추측하지 않는다.
+import { guardApi } from '@/server/apiGuard';
 import { isKoreaCoordinate, errorResponse } from '@/server/googlePlaces';
-import { coord2RegionCode } from '@/server/kakaoLocal';
+import { coord2RegionCode, KakaoLookup } from '@/server/kakaoLocal';
 import { findRegionByCode, isSupportedCode, locateByBoundary, regionDataMeta, summarize } from '@/server/regions';
 
 export async function GET(request: Request) {
@@ -11,7 +12,11 @@ export async function GET(request: Request) {
   const y = Number(url.searchParams.get('y'));
   if (!isKoreaCoordinate(x, y)) return errorResponse(400, '좌표가 올바르지 않아요.');
 
-  const [kakao, boundary] = [await coord2RegionCode(x, y, request.signal), locateByBoundary(x, y)];
+  // 다른 사이트에서 온 요청은 거부하고, 횟수 제한에 걸리면 카카오를 부르지 않고 경계 데이터로만 판정한다(아래 kakao-unavailable).
+  const blocked = guardApi(request, 'regionLocate');
+  if (blocked?.status === 403) return blocked;
+  const kakao: KakaoLookup = blocked ? { ok: false, reason: 'error', message: '동네 확인 요청이 많아 경계 데이터로 판정했어요.' } : await coord2RegionCode(x, y, request.signal);
+  const boundary = locateByBoundary(x, y);
   const headers = { 'Cache-Control': 'no-store' };
   const dataVersion = regionDataMeta.version;
 

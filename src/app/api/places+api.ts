@@ -4,6 +4,7 @@
 // 유형을 지정하면 구글의 기본 유형(primaryType)이 그 유형인 곳만 남긴다. 보조 유형만 맞는 곳(예: 동물병원 검색의 약국,
 // 애견미용 검색의 사람 미용실·학원)이 섞여 나오기 때문이다. 키워드 검색은 반경 밖 결과도 오므로 반경으로 다시 거른다.
 // 결과는 저장하지 않고 필요한 필드만 골라 돌려준다.
+import { guardApi } from '@/server/apiGuard';
 import { callPlaces, errorResponse, GooglePlace, isKoreaCoordinate, LIST_FIELDS, toPlace } from '@/server/googlePlaces';
 
 const DEFAULT_RADIUS_METERS = 1000;
@@ -27,6 +28,9 @@ export async function GET(request: Request) {
   const origin = { latitude: y, longitude: x };
   const circle = { center: origin, radius };
   const common = { languageCode: 'ko', regionCode: 'KR', maxResultCount: 20 };
+
+  const blocked = guardApi(request, 'placesSearch');
+  if (blocked) return blocked;
 
   const result = query
     ? await callPlaces('/places:searchText', {

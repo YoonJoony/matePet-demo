@@ -54,6 +54,7 @@ npm run web
 - 지도: Google Maps JavaScript API (다크 모드), HTML 오버레이 마커
 - 지도 키: `GOOGLE_MAPS_BROWSER_API_KEY`만 `/api/maps-config`에서 브라우저로 전달합니다.
 - 장소: Google Places API (New). `GOOGLE_REST_API_KEY`는 서버 API 라우트(`src/app/api/*+api.ts`)에서만 사용하고 브라우저에는 노출하지 않습니다. 검색 결과는 저장하지 않습니다.
+- 호출 제한(공개 배포용, `src/server/apiGuard.ts`): 장소 검색·상세·사진과 동네 확인 API는 다른 사이트에서 온 요청을 거부하고, 접속자별 1분 횟수와 API별 하루 전체 횟수를 제한합니다. 서버 메모리로 세므로 서버 인스턴스마다 따로 세는 최선 노력 제한이며, 확실한 상한은 Google Cloud 콘솔 할당량으로 겁니다. 장소 상세 사진은 처음 3장만 불러옵니다.
 - 상태: React Context (글·찜·필터·채팅·지도 상태), 모두 메모리 저장
 
 ## 지역(행정동) 데이터
