@@ -143,7 +143,7 @@ export default function RegionSelectScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <Header title={purpose === 'post' ? '등록 동네 선택' : '동네 선택'} />
+      <Header title={purpose === 'post' ? (postRequest?.title ?? '등록 동네 선택') : '동네 선택'} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {/* 1. 현재 위치 — 가장 먼저, 가장 눈에 띄게 */}
         <View testID="region-current-location" style={styles.gpsCard}>

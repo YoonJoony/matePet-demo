@@ -35,9 +35,13 @@ npm install
 GOOGLE_MAPS_BROWSER_API_KEY=지도_표시용_별도_키
 GOOGLE_REST_API_KEY=Places_서버용_키
 KAKAO_REST_API_KEY=발급받은_키
+SUPABASE_URL=https://프로젝트.supabase.co
+SUPABASE_ANON_KEY=공개_anon_키
 ```
 
 지도 표시용 키는 브라우저에 공개됩니다. Google Cloud에서 **Maps JavaScript API만 허용**하고 HTTP 리퍼러에 로컬·배포 도메인을 등록하세요. Places 서버용 키와 동일한 키를 넣으면 `/api/maps-config`는 503을 반환하며 키를 공개하지 않습니다. `.env.example`에는 변수 이름만 있습니다.
+
+로그인은 카카오 로그인(Supabase Auth)이고, 처음 로그인하면 '프로필 설정'(닉네임·기본 동네·약관 동의)을 거칩니다. Supabase 대시보드 SQL Editor에서 `supabase/migrations/0001_profiles.sql`을 실행해 프로필 테이블과 권한 규칙(RLS)을 만듭니다. 글·찜은 아직 데모 데이터입니다.
 
 웹 데모는 Expo 공식 호스팅(EAS Hosting)에 `npm run deploy`로 배포합니다. 서버용 키는 EAS 환경변수(Production, Sensitive)에 두고, 로컬 `.env`는 올리지 않습니다. 자세한 내용은 [서버 배포 인계 문서](./서버-배포-클로드-인계.md)를 확인하세요.
 

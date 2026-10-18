@@ -5,12 +5,13 @@ import type { Region } from '@/data/regions';
 
 // 등록 화면 → 공통 동네 선택 화면 → 등록 화면으로 결과를 돌려주는 연결.
 // 홈 탐색 위치는 선택 화면이 지도 상태(mapState)에 직접 적용하고, 등록 동네는 여기서 작성 화면에만 돌려준다.
-type PostRequest = { initial: Region | null };
+// title: 선택 화면 제목 (기본 '등록 동네 선택', 프로필 설정에서는 '기본 동네 선택')
+type PostRequest = { initial: Region | null; title?: string };
 
 type RegionPickerValue = {
   postRequest: PostRequest | null;
   // 등록 동네 선택을 연다. 고르면 그 동네, 취소·뒤로 가기면 null.
-  pickPostRegion: (initial: Region | null) => Promise<Region | null>;
+  pickPostRegion: (initial: Region | null, title?: string) => Promise<Region | null>;
   finishPostPick: (region: Region | null) => void;
 };
 
@@ -27,9 +28,9 @@ export function RegionPickerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const pickPostRegion = useCallback(
-    (initial: Region | null) => {
+    (initial: Region | null, title?: string) => {
       resolver.current?.(null); // 이전 요청이 남아 있으면 취소로 끝낸다.
-      setPostRequest({ initial });
+      setPostRequest({ initial, title });
       router.push({ pathname: '/region-select', params: { purpose: 'post' } });
       return new Promise<Region | null>((resolve) => {
         resolver.current = resolve;

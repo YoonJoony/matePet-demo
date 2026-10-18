@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { colors } from '@/components/theme';
+import { AuthProvider } from '@/state/auth';
 import { ChatsProvider } from '@/state/chats';
 import { MapStateProvider } from '@/state/mapState';
 import { PetPostsProvider } from '@/state/petPosts';
@@ -21,20 +22,23 @@ export default function RootLayout() {
         <meta name="theme-color" content={colors.background} />
         <style>{`html, body { background-color: ${colors.background}; }`}</style>
       </Head>
-      <MapStateProvider>
-        <PetPostsProvider>
-          <ChatsProvider>
-            <RegionPickerProvider>
-              <View style={styles.page}>
-                <View style={styles.app}>
-                  <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+      {/* 로그인 상태(카카오 로그인·내 프로필)는 모든 화면이 함께 쓴다. */}
+      <AuthProvider>
+        <MapStateProvider>
+          <PetPostsProvider>
+            <ChatsProvider>
+              <RegionPickerProvider>
+                <View style={styles.page}>
+                  <View style={styles.app}>
+                    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }} />
+                  </View>
                 </View>
-              </View>
-              <StatusBar style="light" />
-            </RegionPickerProvider>
-          </ChatsProvider>
-        </PetPostsProvider>
-      </MapStateProvider>
+                <StatusBar style="light" />
+              </RegionPickerProvider>
+            </ChatsProvider>
+          </PetPostsProvider>
+        </MapStateProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

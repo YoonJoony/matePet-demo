@@ -12,4 +12,7 @@ export const colors = {
   mutedText: '#6E737C',
   caution: '#F5B947', // 상담 중 등 주의 상태
   info: '#4E8BFF',
+  // 카카오 로그인 버튼 (카카오 디자인 가이드의 버튼 색)
+  kakao: '#FEE500',
+  kakaoText: '#191919',
 };
