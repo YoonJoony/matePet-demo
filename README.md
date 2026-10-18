@@ -23,7 +23,7 @@ Expo(React Native) + Expo Router로 만들었고, 지금은 **웹 미리보기 �
 
 ## 실행 방법
 
-필요: Node.js 20 이상, Google Cloud API 키 (Maps JavaScript API · Places API (New) 사용 설정), 카카오 REST API 키 (로컬 API — 좌표→행정구역)
+필요: Expo SDK 58에 맞는 Node.js(검증 환경: 24.21.0), Google 지도 표시용·Places 서버용 키 각각 1개, 카카오 REST API 키(로컬 API — 좌표→행정구역)
 
 ```bash
 npm install
@@ -32,9 +32,14 @@ npm install
 프로젝트 루트에 `.env` 파일을 만들고 키를 넣습니다. (`.env`는 저장소에 올라가지 않습니다.)
 
 ```env
-GOOGLE_REST_API_KEY=발급받은_키
+GOOGLE_MAPS_BROWSER_API_KEY=지도_표시용_별도_키
+GOOGLE_REST_API_KEY=Places_서버용_키
 KAKAO_REST_API_KEY=발급받은_키
 ```
+
+지도 표시용 키는 브라우저에 공개됩니다. Google Cloud에서 **Maps JavaScript API만 허용**하고 HTTP 리퍼러에 로컬·배포 도메인을 등록하세요. Places 서버용 키와 동일한 키를 넣으면 `/api/maps-config`는 503을 반환하며 키를 공개하지 않습니다. `.env.example`에는 변수 이름만 있습니다.
+
+서버 배포 현황과 다음 작업은 [서버 배포 Claude 인계 문서](./서버-배포-클로드-인계.md)를 확인하세요.
 
 ```bash
 npm run web
@@ -47,7 +52,8 @@ npm run web
 
 - Expo SDK 58, React Native 0.88, Expo Router (`web.output: "server"` — API 라우트 사용)
 - 지도: Google Maps JavaScript API (다크 모드), HTML 오버레이 마커
-- 장소: Google Places API (New). 키는 서버 API 라우트(`src/app/api/*+api.ts`)에서만 사용하고 브라우저에는 노출하지 않습니다. 검색 결과는 저장하지 않습니다.
+- 지도 키: `GOOGLE_MAPS_BROWSER_API_KEY`만 `/api/maps-config`에서 브라우저로 전달합니다.
+- 장소: Google Places API (New). `GOOGLE_REST_API_KEY`는 서버 API 라우트(`src/app/api/*+api.ts`)에서만 사용하고 브라우저에는 노출하지 않습니다. 검색 결과는 저장하지 않습니다.
 - 상태: React Context (글·찜·필터·채팅·지도 상태), 모두 메모리 저장
 
 ## 지역(행정동) 데이터
